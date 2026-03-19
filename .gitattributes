@@ -1,0 +1,21 @@
+# Auto-detect line endings
+* text=auto
+
+# Enforce LF for these file types
+*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,sql} text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Dockerfiles
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
