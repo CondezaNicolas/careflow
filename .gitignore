@@ -1,5 +1,5 @@
 # =============================================================================
-# Lia Clinic Core - .gitignore
+# CareFlow - .gitignore
 # =============================================================================
 # Standardized gitignore for this monorepo project
 # DO NOT add secrets here - use .env files and .env.example as reference
@@ -108,6 +108,11 @@ tmp/
 temp/
 tmp.*
 *.tmp
+
+# -----------------------------------------------------------------------------
+# Agent / AI tooling
+# -----------------------------------------------------------------------------
+.atl/
 
 # -----------------------------------------------------------------------------
 # MinIO / Local S3 data (never commit bucket data)
