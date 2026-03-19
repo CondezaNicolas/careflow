@@ -1,0 +1,617 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LIA Clinic Core API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/auth/callback": {
+      "get": {
+        "summary": "OIDC callback",
+        "responses": {
+          "200": {
+            "description": "Session issued"
+          },
+          "401": {
+            "description": "OIDC exchange failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "summary": "Liveness probe",
+        "responses": {
+          "200": {
+            "description": "Service process is running"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "Readiness probe",
+        "responses": {
+          "200": {
+            "description": "Service is ready to accept traffic"
+          },
+          "503": {
+            "description": "Service is not ready"
+          }
+        }
+      }
+    },
+    "/ops/outbox/health": {
+      "get": {
+        "summary": "Operational outbox health snapshot (admin)",
+        "responses": {
+          "200": {
+            "description": "Outbox health snapshot returned"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/metrics": {
+      "get": {
+        "summary": "HTTP metrics snapshot (admin)",
+        "responses": {
+          "200": {
+            "description": "Metrics snapshot returned"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ops/diagnostics": {
+      "get": {
+        "summary": "Release diagnostics snapshot (admin)",
+        "responses": {
+          "200": {
+            "description": "Release diagnostics returned"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scheduling/availability": {
+      "get": {
+        "summary": "Search specialist availability slots",
+        "parameters": [
+          { "name": "specialistId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "from", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "durationMinutes", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slots available"
+          }
+        }
+      }
+    },
+    "/scheduling/availability/windows": {
+      "post": {
+        "summary": "Create specialist availability window",
+        "responses": {
+          "201": {
+            "description": "Availability window created"
+          }
+        }
+      }
+    },
+    "/scheduling/appointments": {
+      "post": {
+        "summary": "Create appointment",
+        "parameters": [
+          { "name": "idempotency-key", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": {
+            "description": "Appointment created or idempotent replay"
+          },
+          "400": {
+            "description": "Invalid appointment payload or missing idempotency key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scheduling/appointments/{id}/reschedule": {
+      "post": {
+        "summary": "Reschedule appointment",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "idempotency-key", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": {
+            "description": "Appointment rescheduled or idempotent replay"
+          },
+          "400": {
+            "description": "Invalid reschedule request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Appointment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scheduling/appointments/{id}/cancel": {
+      "post": {
+        "summary": "Cancel appointment",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "idempotency-key", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": {
+            "description": "Appointment canceled or idempotent replay"
+          },
+          "400": {
+            "description": "Invalid cancellation request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Appointment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/clinical/encounters": {
+      "post": {
+        "summary": "Create clinical encounter baseline",
+        "responses": {
+          "201": {
+            "description": "Encounter created"
+          }
+        }
+      }
+    },
+    "/clinical/encounters/{encounterId}": {
+      "patch": {
+        "summary": "Update clinical encounter metadata",
+        "parameters": [
+          { "name": "encounterId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Encounter updated"
+          }
+        }
+      }
+    },
+    "/clinical/encounters/{encounterId}/notes": {
+      "post": {
+        "summary": "Create SOAP-based clinical note",
+        "parameters": [
+          { "name": "encounterId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": {
+            "description": "Clinical note created"
+          }
+        }
+      }
+    },
+    "/clinical/notes/{noteId}": {
+      "patch": {
+        "summary": "Update SOAP clinical note",
+        "parameters": [
+          { "name": "noteId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clinical note updated"
+          }
+        }
+      }
+    },
+    "/clinical/patients/{patientId}/timeline": {
+      "get": {
+        "summary": "Get patient longitudinal clinical timeline",
+        "parameters": [
+          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["all", "internal", "patient_shared"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clinical timeline returned"
+          }
+        }
+      }
+    },
+    "/patient-portal/me/overview": {
+      "get": {
+        "summary": "Get patient portal overview for current patient",
+        "responses": {
+          "200": {
+            "description": "Patient portal overview returned"
+          }
+        }
+      }
+    },
+    "/patient-portal/patients/{patientId}/overview": {
+      "get": {
+        "summary": "Get patient portal overview by patient id",
+        "parameters": [
+          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient portal overview returned"
+          },
+          "403": {
+            "description": "Subject access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exams": {
+      "post": {
+        "summary": "Create a new exam request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["patientId", "examType", "attachments"],
+                "properties": {
+                  "patientId": { "type": "string" },
+                  "examType": { "type": "string" },
+                  "notes": { "type": ["string", "null"] },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "attachmentId": { "type": "string" },
+                        "fileName": { "type": "string" },
+                        "mimeType": { "type": "string" },
+                        "sizeBytes": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Exam created"
+          },
+          "400": {
+            "description": "Invalid exam payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exams/{examId}": {
+      "patch": {
+        "summary": "Update an existing exam",
+        "parameters": [
+          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["examType", "attachments"],
+                "properties": {
+                  "examType": { "type": "string" },
+                  "notes": { "type": ["string", "null"] },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "attachmentId": { "type": "string" },
+                        "fileName": { "type": "string" },
+                        "mimeType": { "type": "string" },
+                        "sizeBytes": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exam updated"
+          },
+          "400": {
+            "description": "Invalid update payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Exam not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exams/{examId}/status": {
+      "post": {
+        "summary": "Transition exam status",
+        "parameters": [
+          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["toStatus"],
+                "properties": {
+                  "toStatus": {
+                    "type": "string",
+                    "enum": ["pending", "ready", "delivered"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exam status transitioned"
+          },
+          "400": {
+            "description": "Invalid status transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Exam not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - invalid status transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exams/patients/{patientId}": {
+      "get": {
+        "summary": "List exams for a patient",
+        "parameters": [
+          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "visibility",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["all", "patient_visible"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient exams returned"
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lia-assistant/tools/{tool}/invoke": {
+      "post": {
+        "summary": "Invoke assistant tool",
+        "parameters": [
+          {
+            "name": "tool",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "availability.search",
+                "appointments.create",
+                "appointments.reschedule",
+                "appointments.cancel",
+                "exams.status.get",
+                "news.list"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["input"],
+                "properties": {
+                  "input": {},
+                  "confirmation": {
+                    "type": "object",
+                    "properties": {
+                      "confirmed": { "type": "boolean" },
+                      "token": { "type": ["string", "null"] },
+                      "reason": { "type": ["string", "null"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tool invocation result"
+          },
+          "400": {
+            "description": "Invalid tool or request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["requestId", "code", "message", "statusCode"],
+        "properties": {
+          "requestId": { "type": "string" },
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "statusCode": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

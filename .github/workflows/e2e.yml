@@ -1,0 +1,40 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'apps/web/e2e/**'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'apps/web/e2e/**'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        
+      - name: Build the app
+        run: npm run build -w @lia/web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+      
+      - name: Run E2E tests
+        run: npm run test:e2e -w @lia/web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+          CI: true
