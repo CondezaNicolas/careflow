@@ -1,11 +1,20 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-
-const contractPath = resolve("apps/api/openapi/openapi.json");
+import {
+  OPENAPI_CONTRACT_PATH,
+  POSTMAN_COLLECTION_PATH,
+  RUNTIME_ROUTES_PATH,
+  buildRuntimeRouteSnapshot,
+  diffOperations,
+  getOpenApiOperations,
+  getPostmanOperations,
+  readJson,
+  toOperationKey
+} from "./api-contract-utils.mjs";
 
 async function main() {
-  const raw = await readFile(contractPath, "utf8");
-  const contract = JSON.parse(raw);
+  const contract = await readJson(OPENAPI_CONTRACT_PATH);
+  const postmanCollection = await readJson(POSTMAN_COLLECTION_PATH);
+  const runtimeRouteSnapshot = await readJson(RUNTIME_ROUTES_PATH);
+  const currentRuntimeRouteSnapshot = await buildRuntimeRouteSnapshot();
 
   if (!contract.openapi || !String(contract.openapi).startsWith("3.")) {
     throw new Error("OpenAPI version must be 3.x");
@@ -22,8 +31,13 @@ async function main() {
   assertCriticalEndpoints(contract.paths);
   assertSchedulingWriteIdempotency(contract.paths);
   assertCriticalFailureResponses(contract.paths);
+  assertRuntimeSnapshotCurrent(runtimeRouteSnapshot, currentRuntimeRouteSnapshot);
+  assertOpenApiMatchesRuntime(contract, runtimeRouteSnapshot);
+  assertPostmanRequestsMatchOpenApi(contract, postmanCollection);
 
-  console.log("API contract lint passed");
+  console.log(
+    `API contract lint passed (${runtimeRouteSnapshot.operations.length} runtime operations, ${getPostmanOperations(postmanCollection).length} Postman requests)`
+  );
 }
 
 function assertCriticalEndpoints(paths) {
@@ -99,6 +113,89 @@ function assertCriticalFailureResponses(paths) {
       }
     }
   }
+}
+
+function assertRuntimeSnapshotCurrent(expectedSnapshot, currentSnapshot) {
+  const diff = diffOperations(expectedSnapshot.operations ?? [], currentSnapshot.operations ?? []);
+
+  if (diff.missing.length === 0 && diff.extra.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    [
+      "Runtime route snapshot is stale. Run npm run contract:sync.",
+      ...formatOperationDiff("Missing from snapshot", diff.missing),
+      ...formatOperationDiff("Unexpected in snapshot", diff.extra)
+    ].join("\n")
+  );
+}
+
+function assertOpenApiMatchesRuntime(contract, runtimeSnapshot) {
+  const diff = diffOperations(runtimeSnapshot.operations ?? [], getOpenApiOperations(contract));
+
+  if (diff.missing.length === 0 && diff.extra.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    [
+      "OpenAPI contract drift detected against runtime controllers.",
+      ...formatOperationDiff("Missing from apps/api/openapi/openapi.json", diff.missing),
+      ...formatOperationDiff("Documented but not implemented", diff.extra)
+    ].join("\n")
+  );
+}
+
+function assertPostmanRequestsMatchOpenApi(contract, postmanCollection) {
+  const documentedOperations = getOpenApiOperations(contract);
+  const unknownRequests = getPostmanOperations(postmanCollection).filter(
+    (operation) =>
+      !documentedOperations.some(
+        (documentedOperation) =>
+          documentedOperation.method === operation.method &&
+          matchesDocumentedPath(documentedOperation.path, operation.path)
+      )
+  );
+
+  if (unknownRequests.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    [
+      "Postman collection references undocumented API operations.",
+      ...unknownRequests.map(
+        (operation) =>
+          `- ${toOperationKey(operation)}${operation.name ? ` (${operation.name})` : ""}`
+      )
+    ].join("\n")
+  );
+}
+
+function matchesDocumentedPath(documentedPath, concretePath) {
+  const documentedSegments = documentedPath.split("/").filter(Boolean);
+  const concreteSegments = concretePath.split("/").filter(Boolean);
+
+  if (documentedSegments.length !== concreteSegments.length) {
+    return false;
+  }
+
+  return documentedSegments.every((segment, index) => {
+    if (segment.startsWith("{") && segment.endsWith("}")) {
+      return concreteSegments[index].length > 0;
+    }
+
+    return segment === concreteSegments[index];
+  });
+}
+
+function formatOperationDiff(label, operations) {
+  if (operations.length === 0) {
+    return [];
+  }
+
+  return [label, ...operations.map((operation) => `- ${toOperationKey(operation)}`)];
 }
 
 main().catch((error) => {

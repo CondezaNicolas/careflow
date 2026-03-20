@@ -89,12 +89,15 @@ npm run dev
 ### Verification
 
 ```bash
+npm run contract:sync
 npm run typecheck
 npm run lint
 npm run test
 npm run migration:check
 npm run contract:lint
 ```
+
+`npm run contract:sync` refreshes the generated backend route snapshot at `apps/api/openapi/runtime-routes.json` and normalizes the published JSON artifacts before `npm run contract:lint` checks runtime/OpenAPI/Postman drift.
 
 ### Environment Variables
 

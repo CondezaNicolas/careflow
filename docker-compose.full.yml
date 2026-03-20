@@ -91,6 +91,10 @@ services:
       - WHATSAPP_ACCESS_TOKEN=
       - WHATSAPP_PHONE_NUMBER_ID=
       - WHATSAPP_BUSINESS_ACCOUNT_ID=
+      - GOOGLE_CALENDAR_MAX_RETRIES=5
+      - GOOGLE_CALENDAR_BACKOFF_SECONDS=30
+      - NOTIFICATIONS_MAX_RETRIES=4
+      - NOTIFICATIONS_BACKOFF_SECONDS=45
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,6 +117,10 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://lia:lia@postgres:5432/lia_clinic
       - REDIS_URL=redis://redis:6379
+      - GOOGLE_CALENDAR_MAX_RETRIES=5
+      - GOOGLE_CALENDAR_BACKOFF_SECONDS=30
+      - NOTIFICATIONS_MAX_RETRIES=4
+      - NOTIFICATIONS_BACKOFF_SECONDS=45
     depends_on:
       postgres:
         condition: service_healthy

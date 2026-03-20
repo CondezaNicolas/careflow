@@ -1,8 +1,16 @@
 import { randomUUID } from "node:crypto";
+import { config } from "dotenv";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { Pool, type PoolClient } from "pg";
 import { z } from "zod";
+
+import { InvalidWorkerEnvironmentError, parseWorkerEnv } from "./env.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: resolve(__dirname, "../.env.local"), quiet: true });
 
 const OUTBOX_EVENT_STATUS = {
   PENDING: "pending",
@@ -43,15 +51,6 @@ const APPOINTMENT_OPERATION = {
   CANCEL: "cancel"
 } as const;
 
-const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
-  REDIS_URL: z.string().min(1),
-  GOOGLE_CALENDAR_MAX_RETRIES: z.coerce.number().int().positive().default(5),
-  GOOGLE_CALENDAR_BACKOFF_SECONDS: z.coerce.number().int().min(0).default(30),
-  NOTIFICATIONS_MAX_RETRIES: z.coerce.number().int().positive().default(4),
-  NOTIFICATIONS_BACKOFF_SECONDS: z.coerce.number().int().min(0).default(45)
-});
-
 interface AppointmentSyncOutboxPayload {
   tenantId: string;
   appointmentId: string;
@@ -76,9 +75,12 @@ interface ExamStatusNotificationOutboxPayload {
 }
 
 type AppointmentOperation = (typeof APPOINTMENT_OPERATION)[keyof typeof APPOINTMENT_OPERATION];
-type NotificationOutboxEventType = (typeof NOTIFICATION_OUTBOX_EVENT_TYPE)[keyof typeof NOTIFICATION_OUTBOX_EVENT_TYPE];
+type NotificationOutboxEventType =
+  (typeof NOTIFICATION_OUTBOX_EVENT_TYPE)[keyof typeof NOTIFICATION_OUTBOX_EVENT_TYPE];
 type NotificationChannel = (typeof NOTIFICATION_CHANNEL)[keyof typeof NOTIFICATION_CHANNEL];
-type NotificationOutboxPayload = AppointmentNotificationOutboxPayload | ExamStatusNotificationOutboxPayload;
+type NotificationOutboxPayload =
+  | AppointmentNotificationOutboxPayload
+  | ExamStatusNotificationOutboxPayload;
 
 interface OutboxEvent {
   id: string;
@@ -202,8 +204,12 @@ export function getWorkerMetricsSnapshot(): WorkerMetricsSnapshot {
   return {
     runsTotal: workerMetrics.runsTotal,
     totalsByPipeline: {
-      [WORKER_PIPELINE.GOOGLE_CALENDAR]: { ...workerMetrics.totalsByPipeline[WORKER_PIPELINE.GOOGLE_CALENDAR] },
-      [WORKER_PIPELINE.NOTIFICATIONS]: { ...workerMetrics.totalsByPipeline[WORKER_PIPELINE.NOTIFICATIONS] }
+      [WORKER_PIPELINE.GOOGLE_CALENDAR]: {
+        ...workerMetrics.totalsByPipeline[WORKER_PIPELINE.GOOGLE_CALENDAR]
+      },
+      [WORKER_PIPELINE.NOTIFICATIONS]: {
+        ...workerMetrics.totalsByPipeline[WORKER_PIPELINE.NOTIFICATIONS]
+      }
     }
   };
 }
@@ -242,7 +248,8 @@ class NoopGoogleCalendarGateway implements GoogleCalendarGateway {
   }): Promise<GoogleCalendarSyncResult> {
     return {
       externalCalendarEventId:
-        input.externalCalendarEventId ?? `gcal_${input.tenantId.replaceAll(/[^a-zA-Z0-9]/g, "")}_${input.appointmentId}`
+        input.externalCalendarEventId ??
+        `gcal_${input.tenantId.replaceAll(/[^a-zA-Z0-9]/g, "")}_${input.appointmentId}`
     };
   }
 
@@ -363,16 +370,27 @@ export class GoogleCalendarOutboxWorker {
     }));
   }
 
-  private async processEvent(event: OutboxEvent): Promise<(typeof APPOINTMENT_SYNC_STATUS)[keyof typeof APPOINTMENT_SYNC_STATUS]> {
+  private async processEvent(
+    event: OutboxEvent
+  ): Promise<(typeof APPOINTMENT_SYNC_STATUS)[keyof typeof APPOINTMENT_SYNC_STATUS]> {
     const client = await this.pool.connect();
     const nextAttempt = event.attempts + 1;
     const nowIso = new Date().toISOString();
     let transactionOpen = false;
 
     try {
-      const appointment = await this.findAppointment(client, event.tenantId, event.payload.appointmentId);
+      const appointment = await this.findAppointment(
+        client,
+        event.tenantId,
+        event.payload.appointmentId
+      );
       if (!appointment) {
-        await this.markEventDeadLetter(client, event, nextAttempt, "Appointment not found for tenant scope");
+        await this.markEventDeadLetter(
+          client,
+          event,
+          nextAttempt,
+          "Appointment not found for tenant scope"
+        );
         return APPOINTMENT_SYNC_STATUS.FAILED;
       }
 
@@ -395,7 +413,14 @@ export class GoogleCalendarOutboxWorker {
           WHERE tenant_id = $1
             AND id = $2
         `,
-        [event.tenantId, appointment.id, APPOINTMENT_SYNC_STATUS.SYNCED, nextAttempt, nowIso, result.externalCalendarEventId]
+        [
+          event.tenantId,
+          appointment.id,
+          APPOINTMENT_SYNC_STATUS.SYNCED,
+          nextAttempt,
+          nowIso,
+          result.externalCalendarEventId
+        ]
       );
       await client.query(
         `
@@ -419,7 +444,9 @@ export class GoogleCalendarOutboxWorker {
       const isRetryable = error instanceof RetryableSyncError;
       const shouldRetry = isRetryable && nextAttempt < this.config.maxRetries;
       const nextRetryAtIso = shouldRetry
-        ? new Date(Date.now() + this.config.backoffSeconds * 1000 * 2 ** Math.max(nextAttempt - 1, 0)).toISOString()
+        ? new Date(
+            Date.now() + this.config.backoffSeconds * 1000 * 2 ** Math.max(nextAttempt - 1, 0)
+          ).toISOString()
         : null;
 
       try {
@@ -500,7 +527,11 @@ export class GoogleCalendarOutboxWorker {
     }
   }
 
-  private async findAppointment(client: PoolClient, tenantId: string, appointmentId: string): Promise<AppointmentRecord | null> {
+  private async findAppointment(
+    client: PoolClient,
+    tenantId: string,
+    appointmentId: string
+  ): Promise<AppointmentRecord | null> {
     const result = await client.query<AppointmentRow>(
       `
         SELECT id, tenant_id, status, external_calendar_event_id
@@ -523,7 +554,12 @@ export class GoogleCalendarOutboxWorker {
     };
   }
 
-  private async markEventDeadLetter(client: PoolClient, event: OutboxEvent, attempt: number, reason: string): Promise<void> {
+  private async markEventDeadLetter(
+    client: PoolClient,
+    event: OutboxEvent,
+    attempt: number,
+    reason: string
+  ): Promise<void> {
     const nowIso = new Date().toISOString();
     await client.query("BEGIN");
     await client.query(
@@ -552,7 +588,10 @@ export class GoogleCalendarOutboxWorker {
     await client.query("COMMIT");
   }
 
-  private syncOutbound(action: AppointmentOperation, appointment: AppointmentRecord): Promise<GoogleCalendarSyncResult> {
+  private syncOutbound(
+    action: AppointmentOperation,
+    appointment: AppointmentRecord
+  ): Promise<GoogleCalendarSyncResult> {
     if (action === APPOINTMENT_OPERATION.CANCEL || appointment.status === "canceled") {
       return this.gateway.cancelAppointmentEvent({
         tenantId: appointment.tenantId,
@@ -653,19 +692,31 @@ export class NotificationOutboxWorker {
     }));
   }
 
-  private async processEvent(event: NotificationOutboxEvent): Promise<(typeof OUTBOX_EVENT_STATUS)[keyof typeof OUTBOX_EVENT_STATUS]> {
+  private async processEvent(
+    event: NotificationOutboxEvent
+  ): Promise<(typeof OUTBOX_EVENT_STATUS)[keyof typeof OUTBOX_EVENT_STATUS]> {
     const client = await this.pool.connect();
     const attemptNumber = event.attempts + 1;
     const nowIso = new Date().toISOString();
     let transactionOpen = false;
 
     try {
-      const recipient = await this.loadRecipientProfile(client, event.tenantId, event.payload.patientId);
+      const recipient = await this.loadRecipientProfile(
+        client,
+        event.tenantId,
+        event.payload.patientId
+      );
 
-      const channels: NotificationChannel[] = [NOTIFICATION_CHANNEL.EMAIL, NOTIFICATION_CHANNEL.WHATSAPP];
+      const channels: NotificationChannel[] = [
+        NOTIFICATION_CHANNEL.EMAIL,
+        NOTIFICATION_CHANNEL.WHATSAPP
+      ];
       for (const channel of channels) {
         const delivery = await this.ensureDelivery(client, event, channel);
-        if (delivery.status === NOTIFICATION_DELIVERY_STATUS.SENT || delivery.status === NOTIFICATION_DELIVERY_STATUS.SKIPPED) {
+        if (
+          delivery.status === NOTIFICATION_DELIVERY_STATUS.SENT ||
+          delivery.status === NOTIFICATION_DELIVERY_STATUS.SKIPPED
+        ) {
           continue;
         }
 
@@ -694,17 +745,40 @@ export class NotificationOutboxWorker {
                   toPhone: recipient.whatsappPhone!
                 });
 
-          await this.markDeliverySent(client, delivery.id, attemptNumber, result.providerMessageId, nowIso);
+          await this.markDeliverySent(
+            client,
+            delivery.id,
+            attemptNumber,
+            result.providerMessageId,
+            nowIso
+          );
         } catch (error) {
           const errorMessage = normalizeErrorMessage(error);
           const retryable = error instanceof RetryableNotificationError;
           const shouldRetry = retryable && attemptNumber < this.config.maxRetries;
           const nextRetryAtIso = shouldRetry
-            ? new Date(Date.now() + this.config.backoffSeconds * 1000 * 2 ** Math.max(attemptNumber - 1, 0)).toISOString()
+            ? new Date(
+                Date.now() + this.config.backoffSeconds * 1000 * 2 ** Math.max(attemptNumber - 1, 0)
+              ).toISOString()
             : null;
 
-          await this.recordDeliveryAttempt(client, delivery.id, event.id, attemptNumber, errorMessage, nowIso);
-          await this.markDeliveryFailure(client, delivery.id, attemptNumber, errorMessage, nextRetryAtIso, nowIso, shouldRetry);
+          await this.recordDeliveryAttempt(
+            client,
+            delivery.id,
+            event.id,
+            attemptNumber,
+            errorMessage,
+            nowIso
+          );
+          await this.markDeliveryFailure(
+            client,
+            delivery.id,
+            attemptNumber,
+            errorMessage,
+            nextRetryAtIso,
+            nowIso,
+            shouldRetry
+          );
           await client.query(
             `
               INSERT INTO job_attempts (id, outbox_event_id, attempt_number, error_message)
@@ -845,7 +919,12 @@ export class NotificationOutboxWorker {
     return result.rows[0]!;
   }
 
-  private async markDeliverySkipped(client: PoolClient, deliveryId: string, reason: string, nowIso: string): Promise<void> {
+  private async markDeliverySkipped(
+    client: PoolClient,
+    deliveryId: string,
+    reason: string,
+    nowIso: string
+  ): Promise<void> {
     await client.query(
       `
         UPDATE notification_deliveries
@@ -983,7 +1062,11 @@ function parsePayload(payload: unknown): AppointmentSyncOutboxPayload {
   const schema = z.object({
     tenantId: z.string().min(1),
     appointmentId: z.string().min(1),
-    action: z.enum([APPOINTMENT_OPERATION.CREATE, APPOINTMENT_OPERATION.RESCHEDULE, APPOINTMENT_OPERATION.CANCEL]),
+    action: z.enum([
+      APPOINTMENT_OPERATION.CREATE,
+      APPOINTMENT_OPERATION.RESCHEDULE,
+      APPOINTMENT_OPERATION.CANCEL
+    ]),
     triggeredAtIso: z.string().min(1)
   });
   return schema.parse(payload);
@@ -1004,7 +1087,11 @@ function parseNotificationPayload(eventType: string, payload: unknown): Notifica
         tenantId: z.string().min(1),
         patientId: z.string().min(1),
         appointmentId: z.string().min(1),
-        action: z.enum([APPOINTMENT_OPERATION.CREATE, APPOINTMENT_OPERATION.RESCHEDULE, APPOINTMENT_OPERATION.CANCEL]),
+        action: z.enum([
+          APPOINTMENT_OPERATION.CREATE,
+          APPOINTMENT_OPERATION.RESCHEDULE,
+          APPOINTMENT_OPERATION.CANCEL
+        ]),
         triggeredAtIso: z.string().min(1)
       })
       .parse(payload);
@@ -1066,10 +1153,18 @@ function resolveChannelEligibility(
   return { shouldSend: true, reason: "ok" };
 }
 
-function buildNotificationMessage(event: NotificationOutboxEvent): { subject: string; body: string } {
+function buildNotificationMessage(event: NotificationOutboxEvent): {
+  subject: string;
+  body: string;
+} {
   if (event.eventType === NOTIFICATION_OUTBOX_EVENT_TYPE.APPOINTMENT_LIFECYCLE_REQUESTED) {
     const payload = event.payload as AppointmentNotificationOutboxPayload;
-    const actionLabel = payload.action === "create" ? "created" : payload.action === "reschedule" ? "rescheduled" : "canceled";
+    const actionLabel =
+      payload.action === "create"
+        ? "created"
+        : payload.action === "reschedule"
+          ? "rescheduled"
+          : "canceled";
     return {
       subject: "Appointment update",
       body: `Your appointment (${payload.appointmentId}) was ${actionLabel}.`
@@ -1094,7 +1189,7 @@ function normalizeErrorMessage(error: unknown): string {
 
 async function bootstrap() {
   const runId = randomUUID();
-  const env = envSchema.parse(process.env);
+  const env = parseWorkerEnv(process.env);
   const pool = new Pool({ connectionString: env.DATABASE_URL });
   const worker = new GoogleCalendarOutboxWorker(pool, new NoopGoogleCalendarGateway(), {
     maxRetries: env.GOOGLE_CALENDAR_MAX_RETRIES,
@@ -1129,8 +1224,22 @@ async function bootstrap() {
   }
 }
 
-const isEntrypoint = process.argv[1] ? pathToFileURL(process.argv[1]).href === import.meta.url : false;
+const isEntrypoint = process.argv[1]
+  ? pathToFileURL(process.argv[1]).href === import.meta.url
+  : false;
 
 if (isEntrypoint && process.env.NODE_ENV !== "test") {
-  void bootstrap();
+  void bootstrap().catch((error: unknown) => {
+    if (error instanceof InvalidWorkerEnvironmentError) {
+      logStructured("worker.startup.invalid_environment", {
+        issues: error.issues
+      });
+      process.exit(1);
+    }
+
+    logStructured("worker.startup.failed", {
+      error: normalizeErrorMessage(error)
+    });
+    process.exit(1);
+  });
 }

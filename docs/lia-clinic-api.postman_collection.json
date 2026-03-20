@@ -55,7 +55,9 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [],
             "body": {
@@ -65,15 +67,22 @@
             "url": {
               "raw": "{{baseUrl}}/auth/login",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "login"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
         {
           "name": "Register",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [],
             "body": {
@@ -83,8 +92,13 @@
             "url": {
               "raw": "{{baseUrl}}/auth/register",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "register"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
             }
           }
         },
@@ -103,7 +117,9 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [],
             "body": {
@@ -113,15 +129,22 @@
             "url": {
               "raw": "{{baseUrl}}/auth/refresh",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "refresh"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
             }
           }
         },
         {
           "name": "Logout",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [],
             "body": {
@@ -131,8 +154,13 @@
             "url": {
               "raw": "{{baseUrl}}/auth/logout",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "logout"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
             }
           }
         },
@@ -152,60 +180,108 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/dev-login?role=admin",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "dev-login"],
-              "query": [{ "key": "role", "value": "admin" }]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "dev-login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "admin"
+                }
+              ]
             }
           }
         },
         {
           "name": "Dev Login - Clinician",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/dev-login?role=clinician",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "dev-login"],
-              "query": [{ "key": "role", "value": "clinician" }]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "dev-login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "clinician"
+                }
+              ]
             }
           }
         },
         {
           "name": "Dev Login - Receptionist",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/dev-login?role=receptionist",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "dev-login"],
-              "query": [{ "key": "role", "value": "receptionist" }]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "dev-login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "receptionist"
+                }
+              ]
             }
           }
         },
         {
           "name": "Dev Login - Patient",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/dev-login?role=patient",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["auth", "dev-login"],
-              "query": [{ "key": "role", "value": "patient" }]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "auth",
+                "dev-login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "patient"
+                }
+              ]
             }
           }
         }
@@ -217,14 +293,22 @@
         {
           "name": "Get Patient Chart",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/patients/:id/chart",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["patients", ":id", "chart"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "patients",
+                ":id",
+                "chart"
+              ]
             }
           }
         }
@@ -236,19 +320,38 @@
         {
           "name": "Get Availability",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/scheduling/availability?specialistId=usr-1&from=2026-04-01T09:00:00Z&to=2026-04-01T12:00:00Z&durationMinutes=30",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["scheduling", "availability"],
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "scheduling",
+                "availability"
+              ],
               "query": [
-                { "key": "specialistId", "value": "usr-1" },
-                { "key": "from", "value": "2026-04-01T09:00:00Z" },
-                { "key": "to", "value": "2026-04-01T12:00:00Z" },
-                { "key": "durationMinutes", "value": "30" }
+                {
+                  "key": "specialistId",
+                  "value": "usr-1"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-04-01T09:00:00Z"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-01T12:00:00Z"
+                },
+                {
+                  "key": "durationMinutes",
+                  "value": "30"
+                }
               ]
             }
           }
@@ -256,11 +359,19 @@
         {
           "name": "Create Appointment",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "idempotency-key", "value": "appt-create-001" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "appt-create-001"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -269,8 +380,13 @@
             "url": {
               "raw": "{{baseUrl}}/scheduling/appointments",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["scheduling", "appointments"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "scheduling",
+                "appointments"
+              ]
             }
           }
         }
@@ -282,9 +398,16 @@
         {
           "name": "Create Encounter",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"patientId\": \"patient-uuid\",\n  \"startedAtIso\": \"2026-04-01T09:00:00Z\",\n  \"endedAtIso\": \"2026-04-01T09:30:00Z\",\n  \"reason\": \"Follow-up consultation\"\n}"
@@ -292,26 +415,49 @@
             "url": {
               "raw": "{{baseUrl}}/clinical/encounters",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["clinical", "encounters"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "clinical",
+                "encounters"
+              ]
             }
           }
         },
         {
           "name": "Get Patient Timeline",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/clinical/patients/:patientId/timeline?visibilityScope=patient_shared&limit=20&offset=0",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["clinical", "patients", ":patientId", "timeline"],
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "clinical",
+                "patients",
+                ":patientId",
+                "timeline"
+              ],
               "query": [
-                { "key": "visibilityScope", "value": "patient_shared" },
-                { "key": "limit", "value": "20" },
-                { "key": "offset", "value": "0" }
+                {
+                  "key": "visibilityScope",
+                  "value": "patient_shared"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
           }
@@ -324,9 +470,16 @@
         {
           "name": "Create Exam Order",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"patientId\": \"patient-uuid\",\n  \"examType\": \"bloodwork\",\n  \"notes\": \"Fasting required\",\n  \"attachments\": []\n}"
@@ -334,23 +487,40 @@
             "url": {
               "raw": "{{baseUrl}}/exams",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["exams"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "exams"
+              ]
             }
           }
         },
         {
           "name": "Get Patient Exams",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/exams/patients/:patientId?visibilityScope=patient_visible",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["exams", "patients", ":patientId"],
-              "query": [{ "key": "visibilityScope", "value": "patient_visible" }]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "exams",
+                "patients",
+                ":patientId"
+              ],
+              "query": [
+                {
+                  "key": "visibilityScope",
+                  "value": "patient_visible"
+                }
+              ]
             }
           }
         }
@@ -362,14 +532,22 @@
         {
           "name": "My Overview",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/patient-portal/me/overview",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["patient-portal", "me", "overview"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "patient-portal",
+                "me",
+                "overview"
+              ]
             }
           }
         }
@@ -381,9 +559,16 @@
         {
           "name": "Invoke Tool",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"input\": {\n    \"specialistId\": \"usr-1\",\n    \"fromIso\": \"2026-04-01T09:00:00Z\",\n    \"toIso\": \"2026-04-01T12:00:00Z\",\n    \"durationMinutes\": 30\n  }\n}"
@@ -391,8 +576,15 @@
             "url": {
               "raw": "{{baseUrl}}/lia-assistant/tools/availability.search/invoke",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["lia-assistant", "tools", "availability.search", "invoke"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "lia-assistant",
+                "tools",
+                "availability.search",
+                "invoke"
+              ]
             }
           }
         }
@@ -404,70 +596,106 @@
         {
           "name": "Health Check",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health/live",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["health", "live"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "health",
+                "live"
+              ]
             }
           }
         },
         {
           "name": "Readiness Check",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health/ready",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["health", "ready"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
             }
           }
         },
         {
           "name": "Outbox Health",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/ops/outbox/health",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["ops", "outbox", "health"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "ops",
+                "outbox",
+                "health"
+              ]
             }
           }
         },
         {
           "name": "Metrics",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/ops/metrics",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["ops", "metrics"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "ops",
+                "metrics"
+              ]
             }
           }
         },
         {
           "name": "Diagnostics",
           "request": {
-            "auth": { "type": "bearer" },
+            "auth": {
+              "type": "bearer"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/ops/diagnostics",
               "protocol": "http",
-              "host": ["localhost:3311"],
-              "path": ["ops", "diagnostics"]
+              "host": [
+                "localhost:3311"
+              ],
+              "path": [
+                "ops",
+                "diagnostics"
+              ]
             }
           }
         }

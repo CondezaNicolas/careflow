@@ -7,6 +7,7 @@ This runbook is the final backend-only go-live gate for `lia-clinic-core`.
 - Copy `.env.example` into `.env.local` for local work, or into your deployment secret store for real environments.
 - Required backend keys:
   - `DATABASE_URL`
+  - `REDIS_URL`
   - `JWT_SECRET`
   - `JWT_REFRESH_SECRET`
   - `SESSION_COOKIE_NAME`
@@ -20,6 +21,10 @@ This runbook is the final backend-only go-live gate for `lia-clinic-core`.
   - `WHATSAPP_ACCESS_TOKEN`
   - `WHATSAPP_PHONE_NUMBER_ID`
   - `WHATSAPP_BUSINESS_ACCOUNT_ID`
+  - `GOOGLE_CALENDAR_MAX_RETRIES`
+  - `GOOGLE_CALENDAR_BACKOFF_SECONDS`
+  - `NOTIFICATIONS_MAX_RETRIES`
+  - `NOTIFICATIONS_BACKOFF_SECONDS`
 - For non-test environments, use:
   - `DATABASE_URL` with `postgresql://`
   - strong random values for `JWT_SECRET`, `JWT_REFRESH_SECRET`, and `SESSION_SECRET`
@@ -44,15 +49,15 @@ Expected result: migration check passes and confirms baseline order is intact.
 
 ## 3) Backend quality gate (explicit DB URL)
 
-Run all release gate commands with explicit database URL:
+Run the backend-only release gate with explicit infrastructure URLs:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lia_clinic npm run typecheck
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lia_clinic npm run lint
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lia_clinic npm run test
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lia_clinic npm run migration:check
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lia_clinic npm run contract:lint
+npm run contract:sync
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lia_clinic REDIS_URL=redis://localhost:6379 npm run verify:backend
 ```
+
+`verify:backend` runs API typecheck/tests/migration+contract checks and worker typecheck/tests without touching `apps/web`.
+`contract:sync` refreshes the generated backend route snapshot at `apps/api/openapi/runtime-routes.json` so `contract:lint` can fail fast on runtime/OpenAPI/Postman drift.
 
 ## 4) Operational endpoints
 

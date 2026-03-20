@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 
 // Load .env.local for development
 const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: resolve(__dirname, "../.env.local") });
+config({ path: resolve(__dirname, "../.env.local"), quiet: true });
 
 import cookieParser from "cookie-parser";
 import express, { type Request, type Response, type NextFunction } from "express";

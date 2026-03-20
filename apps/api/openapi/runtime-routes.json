@@ -1,0 +1,173 @@
+{
+  "operations": [
+    {
+      "controller": "auth/auth.controller.ts",
+      "handler": "devLogin",
+      "method": "get",
+      "path": "/auth/dev-login"
+    },
+    {
+      "controller": "clinical/clinical.controller.ts",
+      "handler": "getPatientTimeline",
+      "method": "get",
+      "path": "/clinical/patients/{patientId}/timeline"
+    },
+    {
+      "controller": "exams/exams.controller.ts",
+      "handler": "listPatientExams",
+      "method": "get",
+      "path": "/exams/patients/{patientId}"
+    },
+    {
+      "controller": "ops/health.controller.ts",
+      "handler": "getLiveness",
+      "method": "get",
+      "path": "/health/live"
+    },
+    {
+      "controller": "ops/health.controller.ts",
+      "handler": "getReadiness",
+      "method": "get",
+      "path": "/health/ready"
+    },
+    {
+      "controller": "ops/ops.controller.ts",
+      "handler": "getDiagnostics",
+      "method": "get",
+      "path": "/ops/diagnostics"
+    },
+    {
+      "controller": "ops/ops.controller.ts",
+      "handler": "getMetrics",
+      "method": "get",
+      "path": "/ops/metrics"
+    },
+    {
+      "controller": "ops/ops.controller.ts",
+      "handler": "getOutboxHealth",
+      "method": "get",
+      "path": "/ops/outbox/health"
+    },
+    {
+      "controller": "patient-portal/patient-portal.controller.ts",
+      "handler": "getMyOverview",
+      "method": "get",
+      "path": "/patient-portal/me/overview"
+    },
+    {
+      "controller": "patient-portal/patient-portal.controller.ts",
+      "handler": "getPatientOverview",
+      "method": "get",
+      "path": "/patient-portal/patients/{patientId}/overview"
+    },
+    {
+      "controller": "patients/patients.controller.ts",
+      "handler": "getChart",
+      "method": "get",
+      "path": "/patients/{id}/chart"
+    },
+    {
+      "controller": "scheduling/scheduling.controller.ts",
+      "handler": "searchAvailability",
+      "method": "get",
+      "path": "/scheduling/availability"
+    },
+    {
+      "controller": "clinical/clinical.controller.ts",
+      "handler": "updateEncounter",
+      "method": "patch",
+      "path": "/clinical/encounters/{encounterId}"
+    },
+    {
+      "controller": "clinical/clinical.controller.ts",
+      "handler": "updateNote",
+      "method": "patch",
+      "path": "/clinical/notes/{noteId}"
+    },
+    {
+      "controller": "exams/exams.controller.ts",
+      "handler": "updateExam",
+      "method": "patch",
+      "path": "/exams/{examId}"
+    },
+    {
+      "controller": "auth/auth.controller.ts",
+      "handler": "login",
+      "method": "post",
+      "path": "/auth/login"
+    },
+    {
+      "controller": "auth/auth.controller.ts",
+      "handler": "logout",
+      "method": "post",
+      "path": "/auth/logout"
+    },
+    {
+      "controller": "auth/auth.controller.ts",
+      "handler": "refresh",
+      "method": "post",
+      "path": "/auth/refresh"
+    },
+    {
+      "controller": "auth/auth.controller.ts",
+      "handler": "register",
+      "method": "post",
+      "path": "/auth/register"
+    },
+    {
+      "controller": "clinical/clinical.controller.ts",
+      "handler": "createEncounter",
+      "method": "post",
+      "path": "/clinical/encounters"
+    },
+    {
+      "controller": "clinical/clinical.controller.ts",
+      "handler": "createEncounterNote",
+      "method": "post",
+      "path": "/clinical/encounters/{encounterId}/notes"
+    },
+    {
+      "controller": "exams/exams.controller.ts",
+      "handler": "createExam",
+      "method": "post",
+      "path": "/exams"
+    },
+    {
+      "controller": "exams/exams.controller.ts",
+      "handler": "transitionExamStatus",
+      "method": "post",
+      "path": "/exams/{examId}/status"
+    },
+    {
+      "controller": "assistant/assistant.controller.ts",
+      "handler": "invokeTool",
+      "method": "post",
+      "path": "/lia-assistant/tools/{toolName}/invoke"
+    },
+    {
+      "controller": "scheduling/scheduling.controller.ts",
+      "handler": "createAppointment",
+      "method": "post",
+      "path": "/scheduling/appointments"
+    },
+    {
+      "controller": "scheduling/scheduling.controller.ts",
+      "handler": "cancelAppointment",
+      "method": "post",
+      "path": "/scheduling/appointments/{id}/cancel"
+    },
+    {
+      "controller": "scheduling/scheduling.controller.ts",
+      "handler": "rescheduleAppointment",
+      "method": "post",
+      "path": "/scheduling/appointments/{id}/reschedule"
+    },
+    {
+      "controller": "scheduling/scheduling.controller.ts",
+      "handler": "createAvailabilityWindow",
+      "method": "post",
+      "path": "/scheduling/availability/windows"
+    }
+  ],
+  "source": "apps/api/src/**/*.controller.ts"
+}

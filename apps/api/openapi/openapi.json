@@ -14,13 +14,27 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["email", "password"],
+                "required": [
+                  "email",
+                  "password"
+                ],
                 "properties": {
-                  "email": { "type": "string", "format": "email" },
-                  "password": { "type": "string", "minLength": 8 },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
                   "role": {
                     "type": "string",
-                    "enum": ["admin", "clinician", "receptionist", "patient"]
+                    "enum": [
+                      "admin",
+                      "clinician",
+                      "receptionist",
+                      "patient"
+                    ]
                   }
                 }
               }
@@ -63,10 +77,19 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["email", "password"],
+                "required": [
+                  "email",
+                  "password"
+                ],
                 "properties": {
-                  "email": { "type": "string", "format": "email" },
-                  "password": { "type": "string", "minLength": 8 }
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  }
                 }
               }
             }
@@ -118,9 +141,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["refreshToken"],
+                "required": [
+                  "refreshToken"
+                ],
                 "properties": {
-                  "refreshToken": { "type": "string", "minLength": 1 }
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1
+                  }
                 }
               }
             }
@@ -172,9 +200,14 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["refreshToken"],
+                "required": [
+                  "refreshToken"
+                ],
                 "properties": {
-                  "refreshToken": { "type": "string", "minLength": 1 }
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1
+                  }
                 }
               }
             }
@@ -229,7 +262,12 @@
             "description": "Role to impersonate (admin, clinician, receptionist, patient). Defaults to admin.",
             "schema": {
               "type": "string",
-              "enum": ["admin", "clinician", "receptionist", "patient"]
+              "enum": [
+                "admin",
+                "clinician",
+                "receptionist",
+                "patient"
+              ]
             }
           },
           {
@@ -350,25 +388,36 @@
             "name": "specialistId",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "from",
             "in": "query",
             "required": true,
-            "schema": { "type": "string", "format": "date-time" }
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           {
             "name": "to",
             "in": "query",
             "required": true,
-            "schema": { "type": "string", "format": "date-time" }
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
           },
           {
             "name": "durationMinutes",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         ],
         "responses": {
@@ -396,7 +445,9 @@
             "name": "idempotency-key",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -420,12 +471,21 @@
       "post": {
         "summary": "Reschedule appointment",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "idempotency-key",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -459,12 +519,21 @@
       "post": {
         "summary": "Cancel appointment",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "idempotency-key",
             "in": "header",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -508,7 +577,14 @@
       "patch": {
         "summary": "Update clinical encounter metadata",
         "parameters": [
-          { "name": "encounterId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -521,7 +597,14 @@
       "post": {
         "summary": "Create SOAP-based clinical note",
         "parameters": [
-          { "name": "encounterId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "encounterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "201": {
@@ -534,7 +617,14 @@
       "patch": {
         "summary": "Update SOAP clinical note",
         "parameters": [
-          { "name": "noteId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -547,14 +637,25 @@
       "get": {
         "summary": "Get patient longitudinal clinical timeline",
         "parameters": [
-          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "visibilityScope",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["all", "internal", "patient_shared"]
+              "enum": [
+                "all",
+                "internal",
+                "patient_shared"
+              ]
             }
           },
           {
@@ -644,7 +745,14 @@
       "get": {
         "summary": "Get patient portal overview by patient id",
         "parameters": [
-          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -672,20 +780,41 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["patientId", "examType", "attachments"],
+                "required": [
+                  "patientId",
+                  "examType",
+                  "attachments"
+                ],
                 "properties": {
-                  "patientId": { "type": "string" },
-                  "examType": { "type": "string" },
-                  "notes": { "type": ["string", "null"] },
+                  "patientId": {
+                    "type": "string"
+                  },
+                  "examType": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "attachments": {
                     "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
-                        "attachmentId": { "type": "string" },
-                        "fileName": { "type": "string" },
-                        "mimeType": { "type": "string" },
-                        "sizeBytes": { "type": "integer" }
+                        "attachmentId": {
+                          "type": "string"
+                        },
+                        "fileName": {
+                          "type": "string"
+                        },
+                        "mimeType": {
+                          "type": "string"
+                        },
+                        "sizeBytes": {
+                          "type": "integer"
+                        }
                       }
                     }
                   }
@@ -715,7 +844,14 @@
       "patch": {
         "summary": "Update an existing exam",
         "parameters": [
-          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "examId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
@@ -723,19 +859,37 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["examType", "attachments"],
+                "required": [
+                  "examType",
+                  "attachments"
+                ],
                 "properties": {
-                  "examType": { "type": "string" },
-                  "notes": { "type": ["string", "null"] },
+                  "examType": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
                   "attachments": {
                     "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
-                        "attachmentId": { "type": "string" },
-                        "fileName": { "type": "string" },
-                        "mimeType": { "type": "string" },
-                        "sizeBytes": { "type": "integer" }
+                        "attachmentId": {
+                          "type": "string"
+                        },
+                        "fileName": {
+                          "type": "string"
+                        },
+                        "mimeType": {
+                          "type": "string"
+                        },
+                        "sizeBytes": {
+                          "type": "integer"
+                        }
                       }
                     }
                   }
@@ -775,7 +929,14 @@
       "post": {
         "summary": "Transition exam status",
         "parameters": [
-          { "name": "examId", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "examId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
@@ -783,11 +944,17 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["toStatus"],
+                "required": [
+                  "toStatus"
+                ],
                 "properties": {
                   "toStatus": {
                     "type": "string",
-                    "enum": ["pending", "ready", "delivered"]
+                    "enum": [
+                      "pending",
+                      "ready",
+                      "delivered"
+                    ]
                   }
                 }
               }
@@ -835,14 +1002,24 @@
       "get": {
         "summary": "List exams for a patient",
         "parameters": [
-          { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "patientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "visibilityScope",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["all", "patient_visible"]
+              "enum": [
+                "all",
+                "patient_visible"
+              ]
             }
           }
         ],
@@ -890,15 +1067,29 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["input"],
+                "required": [
+                  "input"
+                ],
                 "properties": {
                   "input": {},
                   "confirmation": {
                     "type": "object",
                     "properties": {
-                      "confirmed": { "type": "boolean" },
-                      "token": { "type": ["string", "null"] },
-                      "reason": { "type": ["string", "null"] }
+                      "confirmed": {
+                        "type": "boolean"
+                      },
+                      "token": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "reason": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
                     }
                   }
                 }
@@ -938,20 +1129,39 @@
     "schemas": {
       "ErrorEnvelope": {
         "type": "object",
-        "required": ["requestId", "code", "message", "statusCode"],
+        "required": [
+          "requestId",
+          "code",
+          "message",
+          "statusCode"
+        ],
         "properties": {
-          "requestId": { "type": "string" },
-          "code": { "type": "string" },
-          "message": { "type": "string" },
-          "statusCode": { "type": "integer" },
+          "requestId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "statusCode": {
+            "type": "integer"
+          },
           "details": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["message"],
+              "required": [
+                "message"
+              ],
               "properties": {
-                "field": { "type": "string" },
-                "message": { "type": "string" }
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
               }
             }
           }
