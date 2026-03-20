@@ -1,15 +1,16 @@
-import { Controller, Get, Inject, Param, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Req } from "@nestjs/common";
 
 import { Roles } from "../auth/decorators/roles.decorator.js";
-import { AuthenticatedGuard, type RequestWithPrincipal } from "../auth/guards/authenticated.guard.js";
-import { RolesGuard } from "../auth/guards/roles.guard.js";
+import type { RequestWithPrincipal } from "../auth/guards/authenticated.guard.js";
 import { USER_ROLE } from "../common/constants/user-role.js";
+import { PatientPortalPatientParamDto } from "./patient-portal.dtos.js";
 import { PatientPortalService } from "./patient-portal.service.js";
 
 @Controller("patient-portal")
-@UseGuards(AuthenticatedGuard, RolesGuard)
 export class PatientPortalController {
-  constructor(@Inject(PatientPortalService) private readonly patientPortalService: PatientPortalService) {}
+  constructor(
+    @Inject(PatientPortalService) private readonly patientPortalService: PatientPortalService
+  ) {}
 
   @Get("me/overview")
   @Roles(USER_ROLE.PATIENT)
@@ -19,7 +20,10 @@ export class PatientPortalController {
 
   @Get("patients/:patientId/overview")
   @Roles(USER_ROLE.ADMIN, USER_ROLE.CLINICIAN, USER_ROLE.RECEPTIONIST, USER_ROLE.PATIENT)
-  getPatientOverview(@Req() request: RequestWithPrincipal, @Param("patientId") patientId: string) {
-    return this.patientPortalService.getOverview(request.principal!, patientId);
+  getPatientOverview(
+    @Req() request: RequestWithPrincipal,
+    @Param() params: PatientPortalPatientParamDto
+  ) {
+    return this.patientPortalService.getOverview(request.principal!, params.patientId);
   }
 }

@@ -1,15 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { resolveQueryExecutor, type QueryExecutor } from "../common/db/repository.utils.js";
 import { DatabaseService, type DatabaseTransaction } from "../db/database.service.js";
 import type { AssistantAuditRecord } from "./assistant.types.js";
-
-type QueryExecutor = DatabaseService | DatabaseTransaction;
 
 @Injectable()
 export class AssistantRepository {
   constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
-  async saveAuditRecord(record: AssistantAuditRecord, transaction?: DatabaseTransaction): Promise<void> {
+  async saveAuditRecord(
+    record: AssistantAuditRecord,
+    transaction?: DatabaseTransaction
+  ): Promise<void> {
     await this.getExecutor(transaction).query(
       `
         INSERT INTO assistant_tool_audit_logs (
@@ -46,6 +48,6 @@ export class AssistantRepository {
   }
 
   private getExecutor(transaction?: DatabaseTransaction): QueryExecutor {
-    return transaction ?? this.databaseService;
+    return resolveQueryExecutor(this.databaseService, transaction);
   }
 }

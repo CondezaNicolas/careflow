@@ -1,18 +1,20 @@
-import { Injectable, OnModuleDestroy } from "@nestjs/common";
+import { Inject, Injectable, OnModuleDestroy } from "@nestjs/common";
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 
-import { parseEnv } from "../config/env.js";
+import { PlatformConfigService } from "../config/platform-config.service.js";
 
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly pool: Pool;
 
-  constructor() {
-    const env = parseEnv(process.env);
-    this.pool = new Pool({ connectionString: env.DATABASE_URL });
+  constructor(@Inject(PlatformConfigService) platformConfig: PlatformConfigService) {
+    this.pool = new Pool({ connectionString: platformConfig.database.url });
   }
 
-  query<T extends QueryResultRow>(text: string, values: readonly unknown[] = []): Promise<QueryResult<T>> {
+  query<T extends QueryResultRow>(
+    text: string,
+    values: readonly unknown[] = []
+  ): Promise<QueryResult<T>> {
     return this.pool.query<T>(text, [...values]);
   }
 
@@ -39,6 +41,10 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    await this.destroy();
+  }
+
+  async destroy(): Promise<void> {
     await this.pool.end();
   }
 }
@@ -46,7 +52,10 @@ export class DatabaseService implements OnModuleDestroy {
 export class DatabaseTransaction {
   constructor(private readonly client: PoolClient) {}
 
-  query<T extends QueryResultRow>(text: string, values: readonly unknown[] = []): Promise<QueryResult<T>> {
+  query<T extends QueryResultRow>(
+    text: string,
+    values: readonly unknown[] = []
+  ): Promise<QueryResult<T>> {
     return this.client.query<T>(text, [...values]);
   }
 }

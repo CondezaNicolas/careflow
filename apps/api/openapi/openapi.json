@@ -5,15 +5,249 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/auth/callback": {
-      "get": {
-        "summary": "OIDC callback",
+    "/auth/register": {
+      "post": {
+        "summary": "Register a local user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "role": {
+                    "type": "string",
+                    "enum": ["admin", "clinician", "receptionist", "patient"]
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": "Session issued"
+          "201": {
+            "description": "User registered"
+          },
+          "400": {
+            "description": "Invalid registration payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Issue access and refresh tokens",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tokens issued"
+          },
+          "400": {
+            "description": "Invalid login payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           },
           "401": {
-            "description": "OIDC exchange failed",
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Rotate refresh token family and issue a new access token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": {
+                  "refreshToken": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tokens refreshed"
+          },
+          "400": {
+            "description": "Invalid refresh payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refresh token rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Revoke the authenticated refresh token family",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": {
+                  "refreshToken": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated session revoked"
+          },
+          "400": {
+            "description": "Invalid logout payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refresh token rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/dev-login": {
+      "get": {
+        "summary": "Issue a development-only access token",
+        "description": "Creates a development session without external identity infrastructure. Controlled by DEV_LOGIN_ENABLED and disabled in production.",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "description": "Role to impersonate (admin, clinician, receptionist, patient). Defaults to admin.",
+            "schema": {
+              "type": "string",
+              "enum": ["admin", "clinician", "receptionist", "patient"]
+            }
+          },
+          {
+            "name": "redirect",
+            "in": "query",
+            "required": false,
+            "description": "Optional client redirect hint returned in the response body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Development token issued"
+          },
+          "404": {
+            "description": "Dev login is disabled",
             "content": {
               "application/json": {
                 "schema": {
@@ -112,10 +346,30 @@
       "get": {
         "summary": "Search specialist availability slots",
         "parameters": [
-          { "name": "specialistId", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "from", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "to", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "durationMinutes", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1 } }
+          {
+            "name": "specialistId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "durationMinutes",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 }
+          }
         ],
         "responses": {
           "200": {
@@ -138,7 +392,12 @@
       "post": {
         "summary": "Create appointment",
         "parameters": [
-          { "name": "idempotency-key", "in": "header", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
         ],
         "responses": {
           "201": {
@@ -162,7 +421,12 @@
         "summary": "Reschedule appointment",
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "idempotency-key", "in": "header", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
         ],
         "responses": {
           "201": {
@@ -196,7 +460,12 @@
         "summary": "Cancel appointment",
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "idempotency-key", "in": "header", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
         ],
         "responses": {
           "201": {
@@ -280,18 +549,41 @@
         "parameters": [
           { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
           {
-            "name": "visibility",
+            "name": "visibilityScope",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
               "enum": ["all", "internal", "patient_shared"]
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of timeline entries to return (default 50, max 100)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Number of entries to skip for pagination (default 0)",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Clinical timeline returned"
+            "description": "Clinical timeline returned with pagination metadata"
           }
         }
       }
@@ -302,6 +594,48 @@
         "responses": {
           "200": {
             "description": "Patient portal overview returned"
+          }
+        }
+      }
+    },
+    "/patients/{id}/chart": {
+      "get": {
+        "summary": "Get patient medical chart",
+        "description": "Returns the full medical chart for a patient. Only accessible by admin, clinician, and receptionist roles.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Patient ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient chart returned"
+          },
+          "403": {
+            "description": "Forbidden - insufficient role permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Patient not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -503,7 +837,7 @@
         "parameters": [
           { "name": "patientId", "in": "path", "required": true, "schema": { "type": "string" } },
           {
-            "name": "visibility",
+            "name": "visibilityScope",
             "in": "query",
             "required": false,
             "schema": {
@@ -529,12 +863,12 @@
         }
       }
     },
-    "/lia-assistant/tools/{tool}/invoke": {
+    "/lia-assistant/tools/{toolName}/invoke": {
       "post": {
         "summary": "Invoke assistant tool",
         "parameters": [
           {
-            "name": "tool",
+            "name": "toolName",
             "in": "path",
             "required": true,
             "schema": {
@@ -609,7 +943,18 @@
           "requestId": { "type": "string" },
           "code": { "type": "string" },
           "message": { "type": "string" },
-          "statusCode": { "type": "integer" }
+          "statusCode": { "type": "integer" },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["message"],
+              "properties": {
+                "field": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
         }
       }
     }

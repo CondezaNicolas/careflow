@@ -2,21 +2,31 @@ import { randomUUID } from "node:crypto";
 
 import { Inject, Injectable } from "@nestjs/common";
 
+import {
+  inSerializableTransaction,
+  resolveQueryExecutor,
+  type QueryExecutor
+} from "../common/db/repository.utils.js";
+import { tenantIdFromScope, type TenantScopeInput } from "../common/tenant/tenant-scope.js";
 import { DatabaseService, type DatabaseTransaction } from "../db/database.service.js";
 import {
   NOTIFICATION_OUTBOX_EVENT_TYPE,
   type ExamStatusNotificationOutboxPayload
 } from "../notifications/notifications.types.js";
-import { EXAM_STATUS, type ExamAttachmentMetadata, type ExamListVisibilityScope, type ExamRecord, type ExamStatus } from "./exams.types.js";
-
-type QueryExecutor = DatabaseService | DatabaseTransaction;
+import {
+  EXAM_STATUS,
+  type ExamAttachmentMetadata,
+  type ExamListVisibilityScope,
+  type ExamRecord,
+  type ExamStatus
+} from "./exams.types.js";
 
 @Injectable()
 export class ExamsRepository {
   constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   inSerializedTransaction<T>(action: (transaction: DatabaseTransaction) => Promise<T>): Promise<T> {
-    return this.databaseService.transaction(action, { isolationLevel: "SERIALIZABLE" });
+    return inSerializableTransaction(this.databaseService, action);
   }
 
   async saveExam(exam: ExamRecord, transaction?: DatabaseTransaction): Promise<ExamRecord> {
@@ -69,7 +79,12 @@ export class ExamsRepository {
     };
   }
 
-  async findExamWithinTenant(tenantId: string, examId: string, transaction?: DatabaseTransaction): Promise<ExamRecord | null> {
+  async findExamWithinTenant(
+    scope: TenantScopeInput,
+    examId: string,
+    transaction?: DatabaseTransaction
+  ): Promise<ExamRecord | null> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<ExamRecordRow>(
       `
         SELECT id, tenant_id, patient_id, requested_by_professional_id, exam_type, status, notes,
@@ -94,11 +109,12 @@ export class ExamsRepository {
   }
 
   async listPatientExams(
-    tenantId: string,
+    scope: TenantScopeInput,
     patientId: string,
     visibilityScope: ExamListVisibilityScope,
     transaction?: DatabaseTransaction
   ): Promise<ExamRecord[]> {
+    const tenantId = tenantIdFromScope(scope);
     const shouldRestrictVisibility = visibilityScope !== "all";
     const result = await this.getExecutor(transaction).query<ExamRecordRow>(
       `
@@ -169,7 +185,14 @@ export class ExamsRepository {
           INSERT INTO clinical_exam_attachments (exam_id, tenant_id, attachment_id, file_name, mime_type, size_bytes)
           VALUES ($1, $2, $3, $4, $5, $6)
         `,
-        [examId, tenantId, attachment.attachmentId, attachment.fileName, attachment.mimeType, attachment.sizeBytes]
+        [
+          examId,
+          tenantId,
+          attachment.attachmentId,
+          attachment.fileName,
+          attachment.mimeType,
+          attachment.sizeBytes
+        ]
       );
     }
   }
@@ -224,7 +247,7 @@ export class ExamsRepository {
   }
 
   private getExecutor(transaction?: DatabaseTransaction): QueryExecutor {
-    return transaction ?? this.databaseService;
+    return resolveQueryExecutor(this.databaseService, transaction);
   }
 }
 

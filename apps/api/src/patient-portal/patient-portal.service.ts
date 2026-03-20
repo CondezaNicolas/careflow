@@ -19,21 +19,26 @@ export class PatientPortalService {
     @Inject(ClinicalRepository) private readonly clinicalRepository: ClinicalRepository
   ) {}
 
-  async getOverview(principal: AuthPrincipal, patientId: string): Promise<PatientPortalOverviewResponse> {
+  async getOverview(
+    principal: AuthPrincipal,
+    patientId: string
+  ): Promise<PatientPortalOverviewResponse> {
     const normalizedPatientId = normalizePatientId(patientId);
     assertPortalPatientAccess(principal, normalizedPatientId);
 
-    const [appointments, releasedExams, sharedTimeline] = await Promise.all([
-      this.schedulingRepository.listAppointmentsForPatient(principal.tenantId, normalizedPatientId),
+    const [appointments, releasedExams, { entries: sharedTimeline }] = await Promise.all([
+      this.schedulingRepository.listAppointmentsForPatient(principal, normalizedPatientId),
       this.examsRepository.listPatientExams(
-        principal.tenantId,
+        principal,
         normalizedPatientId,
         EXAM_LIST_VISIBILITY_SCOPE.PATIENT_VISIBLE
       ),
       this.clinicalRepository.listPatientTimeline(
-        principal.tenantId,
+        principal,
         normalizedPatientId,
-        CLINICAL_TIMELINE_VISIBILITY_SCOPE.PATIENT_SHARED
+        CLINICAL_TIMELINE_VISIBILITY_SCOPE.PATIENT_SHARED,
+        50,
+        0
       )
     ]);
 

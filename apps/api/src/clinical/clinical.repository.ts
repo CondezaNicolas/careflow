@@ -1,5 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import {
+  inSerializableTransaction,
+  resolveQueryExecutor,
+  type QueryExecutor
+} from "../common/db/repository.utils.js";
+import { tenantIdFromScope, type TenantScopeInput } from "../common/tenant/tenant-scope.js";
 import { DatabaseService, type DatabaseTransaction } from "../db/database.service.js";
 import type {
   ClinicalAttachmentMetadata,
@@ -11,17 +17,18 @@ import type {
   ClinicalVitals
 } from "./clinical.types.js";
 
-type QueryExecutor = DatabaseService | DatabaseTransaction;
-
 @Injectable()
 export class ClinicalRepository {
   constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   inSerializedTransaction<T>(action: (transaction: DatabaseTransaction) => Promise<T>): Promise<T> {
-    return this.databaseService.transaction(action, { isolationLevel: "SERIALIZABLE" });
+    return inSerializableTransaction(this.databaseService, action);
   }
 
-  async saveEncounter(encounter: ClinicalEncounter, transaction?: DatabaseTransaction): Promise<ClinicalEncounter> {
+  async saveEncounter(
+    encounter: ClinicalEncounter,
+    transaction?: DatabaseTransaction
+  ): Promise<ClinicalEncounter> {
     const result = await this.getExecutor(transaction).query<ClinicalEncounterRow>(
       `
         INSERT INTO clinical_encounters (
@@ -61,10 +68,11 @@ export class ClinicalRepository {
   }
 
   async findEncounterWithinTenant(
-    tenantId: string,
+    scope: TenantScopeInput,
     encounterId: string,
     transaction?: DatabaseTransaction
   ): Promise<ClinicalEncounter | null> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<ClinicalEncounterRow>(
       `
         SELECT id, tenant_id, patient_id, author_professional_id, started_at, ended_at, reason, created_at, updated_at
@@ -141,10 +149,11 @@ export class ClinicalRepository {
   }
 
   async findNoteWithinTenant(
-    tenantId: string,
+    scope: TenantScopeInput,
     noteId: string,
     transaction?: DatabaseTransaction
   ): Promise<ClinicalNote | null> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<ClinicalNoteRow>(
       `
         SELECT id, tenant_id, encounter_id, patient_id, author_professional_id, visibility, subjective, objective,
@@ -169,12 +178,32 @@ export class ClinicalRepository {
   }
 
   async listPatientTimeline(
-    tenantId: string,
+    scope: TenantScopeInput,
     patientId: string,
     visibilityScope: ClinicalTimelineVisibilityScope,
+    limit: number,
+    offset: number,
     transaction?: DatabaseTransaction
-  ): Promise<ClinicalTimelineEntry[]> {
+  ): Promise<{ entries: ClinicalTimelineEntry[]; total: number }> {
+    const tenantId = tenantIdFromScope(scope);
     const shouldRestrictVisibility = visibilityScope !== "all";
+
+    // Get total count first
+    const countResult = await this.getExecutor(transaction).query<{ count: string }>(
+      `
+        SELECT COUNT(*) AS count
+        FROM clinical_notes n
+        INNER JOIN clinical_encounters e
+          ON e.id = n.encounter_id
+         AND e.tenant_id = n.tenant_id
+        WHERE n.tenant_id = $1
+          AND n.patient_id = $2
+          AND ($3::boolean = false OR n.visibility = $4)
+      `,
+      [tenantId, patientId, shouldRestrictVisibility, visibilityScope]
+    );
+    const total = parseInt(countResult.rows[0]?.count ?? "0", 10);
+
     const result = await this.getExecutor(transaction).query<TimelineRow>(
       `
         SELECT
@@ -210,18 +239,19 @@ export class ClinicalRepository {
           AND n.patient_id = $2
           AND ($3::boolean = false OR n.visibility = $4)
         ORDER BY e.started_at DESC, n.created_at DESC
+        LIMIT $5 OFFSET $6
       `,
-      [tenantId, patientId, shouldRestrictVisibility, visibilityScope]
+      [tenantId, patientId, shouldRestrictVisibility, visibilityScope, limit, offset]
     );
 
     if (result.rows.length === 0) {
-      return [];
+      return { entries: [], total };
     }
 
     const noteIds = result.rows.map((row) => row.note_id);
     const attachmentsByNoteId = await this.listAttachmentsByNoteIds(tenantId, noteIds, transaction);
 
-    return result.rows.map((row) => ({
+    const entries = result.rows.map((row) => ({
       encounter: {
         id: row.encounter_id,
         tenantId: row.encounter_tenant_id,
@@ -252,6 +282,8 @@ export class ClinicalRepository {
         attachments: attachmentsByNoteId.get(row.note_id) ?? []
       }
     }));
+
+    return { entries, total };
   }
 
   private async replaceNoteAttachments(
@@ -270,15 +302,32 @@ export class ClinicalRepository {
       [tenantId, noteId]
     );
 
-    for (const attachment of attachments) {
-      await executor.query(
-        `
-          INSERT INTO clinical_note_attachments (note_id, tenant_id, attachment_id, file_name, mime_type, size_bytes)
-          VALUES ($1, $2, $3, $4, $5, $6)
-        `,
-        [noteId, tenantId, attachment.attachmentId, attachment.fileName, attachment.mimeType, attachment.sizeBytes]
-      );
+    if (attachments.length === 0) {
+      return;
     }
+
+    // Batch insert using UNNEST for single DB round-trip
+    const noteIds = attachments.map(() => noteId);
+    const tenantIds = attachments.map(() => tenantId);
+    const attachmentIds = attachments.map((a) => a.attachmentId);
+    const fileNames = attachments.map((a) => a.fileName);
+    const mimeTypes = attachments.map((a) => a.mimeType);
+    const sizeBytes = attachments.map((a) => a.sizeBytes);
+
+    await executor.query(
+      `
+        INSERT INTO clinical_note_attachments (note_id, tenant_id, attachment_id, file_name, mime_type, size_bytes)
+        SELECT * FROM UNNEST(
+          $1::uuid[],
+          $2::uuid[],
+          $3::uuid[],
+          $4::text[],
+          $5::text[],
+          $6::bigint[]
+        )
+      `,
+      [noteIds, tenantIds, attachmentIds, fileNames, mimeTypes, sizeBytes]
+    );
   }
 
   private async listNoteAttachments(
@@ -341,7 +390,7 @@ export class ClinicalRepository {
   }
 
   private getExecutor(transaction?: DatabaseTransaction): QueryExecutor {
-    return transaction ?? this.databaseService;
+    return resolveQueryExecutor(this.databaseService, transaction);
   }
 }
 

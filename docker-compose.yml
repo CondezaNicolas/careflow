@@ -66,24 +66,28 @@ services:
       - API_PORT=3311
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lia_clinic
       - REDIS_URL=redis://redis:6379
-      - MINIO_ENDPOINT=minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=lia
-      - MINIO_SECRET_KEY=lia-clinic-secret
-      - MINIO_BUCKET=lia-clinic
-      - OIDC_ISSUER=https://your-oidc-provider.com
-      - OIDC_CLIENT_ID=your-client-id
-      - OIDC_CLIENT_SECRET=your-client-secret
-      - OIDC_REDIRECT_URI=https://localhost:3311/auth/callback
+      - ENABLE_REQUEST_LOGGING=true
+      - ALLOWED_ORIGINS=http://localhost:3310,http://localhost:3000
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - REQUEST_TIMEOUT_MS=30000
+      - JWT_SECRET=dev-jwt-secret-please-override-in-production-32ch!
+      - JWT_REFRESH_SECRET=dev-refresh-secret-please-override-in-production-32ch!
+      - JWT_ACCESS_TTL=15m
+      - JWT_REFRESH_TTL=7d
+      - SESSION_COOKIE_NAME=lia_session
+      - SESSION_SECRET=dev-session-secret-please-override-in-production-32ch!
+      - AUTH_DEV_BYPASS=false
+      - DEV_LOGIN_ENABLED=false
       - GOOGLE_CALENDAR_CLIENT_ID=
       - GOOGLE_CALENDAR_CLIENT_SECRET=
-      - GOOGLE_CALENDAR_REDIRECT_URI=
-      - EMAIL_HOST=mailhog
-      - EMAIL_PORT=1025
-      - EMAIL_FROM=noreply@liaclinic.local
-      - WHATSAPP_API_URL=
-      - WHATSAPP_TOKEN=
-      - WHATSAPP_PHONE_ID=
+      - GOOGLE_CALENDAR_REFRESH_TOKEN=
+      - GOOGLE_CALENDAR_CALENDAR_ID=
+      - EMAIL_PROVIDER_API_KEY=
+      - EMAIL_PROVIDER_FROM=noreply@liaclinic.local
+      - WHATSAPP_ACCESS_TOKEN=
+      - WHATSAPP_PHONE_NUMBER_ID=
+      - WHATSAPP_BUSINESS_ACCOUNT_ID=
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,15 +105,25 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/lia_clinic
       - REDIS_URL=redis://redis:6379
-      - GOOGLE_CALENDAR_CLIENT_ID=
-      - GOOGLE_CALENDAR_CLIENT_SECRET=
-      - EMAIL_HOST=mailhog
-      - EMAIL_PORT=1025
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # Frontend web (Next.js)
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3310:3310"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3311
+      - API_BASE_URL=http://api:3311
+    depends_on:
+      - api
 
 volumes:
   pg_data:

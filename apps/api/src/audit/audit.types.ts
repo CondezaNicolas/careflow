@@ -1,4 +1,5 @@
 import type { UserRole } from "../common/constants/user-role.js";
+import { getRequestContext } from "../common/observability/request-context.js";
 
 export const AUDIT_SOURCE = {
   API: "api",
@@ -6,6 +7,14 @@ export const AUDIT_SOURCE = {
 } as const;
 
 export const AUDIT_ACTION = {
+  AUTH_REGISTERED: "auth.registered",
+  AUTH_LOGIN_SUCCEEDED: "auth.login.succeeded",
+  AUTH_REFRESH_ROTATED: "auth.refresh.rotated",
+  AUTH_LOGOUT_COMPLETED: "auth.logout.completed",
+  AUTH_DEV_LOGIN_ISSUED: "auth.dev_login.issued",
+  OPS_OUTBOX_HEALTH_VIEWED: "ops.outbox_health.viewed",
+  OPS_METRICS_VIEWED: "ops.metrics.viewed",
+  OPS_DIAGNOSTICS_VIEWED: "ops.diagnostics.viewed",
   SCHEDULING_APPOINTMENT_CREATED: "scheduling.appointment.created",
   SCHEDULING_APPOINTMENT_RESCHEDULED: "scheduling.appointment.rescheduled",
   SCHEDULING_APPOINTMENT_CANCELED: "scheduling.appointment.canceled",
@@ -44,9 +53,11 @@ export interface ResolvedMutationMeta {
 }
 
 export function resolveMutationMeta(meta: MutationMeta | undefined): ResolvedMutationMeta {
+  const requestContext = getRequestContext();
+
   return {
     source: meta?.source ?? AUDIT_SOURCE.API,
-    requestId: meta?.requestId ?? null,
-    traceId: meta?.traceId ?? null
+    requestId: meta?.requestId ?? requestContext?.requestId ?? null,
+    traceId: meta?.traceId ?? requestContext?.traceId ?? null
   };
 }

@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 
 import type { AuthPrincipal } from "@lia/shared-types";
 import { AuditRepository } from "../audit/audit.repository.js";
@@ -14,7 +20,12 @@ import type {
   UpdateExamRequest
 } from "./exams.contracts.js";
 import { ExamsRepository } from "./exams.repository.js";
-import { EXAM_LIST_VISIBILITY_SCOPE, EXAM_STATUS, type ExamListVisibilityScope, type ExamStatus } from "./exams.types.js";
+import {
+  EXAM_LIST_VISIBILITY_SCOPE,
+  EXAM_STATUS,
+  type ExamListVisibilityScope,
+  type ExamStatus
+} from "./exams.types.js";
 
 @Injectable()
 export class ExamsService {
@@ -23,26 +34,33 @@ export class ExamsService {
     @Inject(AuditRepository) private readonly auditRepository: AuditRepository
   ) {}
 
-  async createExam(principal: AuthPrincipal, input: CreateExamRequest, meta?: MutationMeta): Promise<ExamResponse> {
+  async createExam(
+    principal: AuthPrincipal,
+    input: CreateExamRequest,
+    meta?: MutationMeta
+  ): Promise<ExamResponse> {
     const normalized = normalizeCreateExamInput(input);
     const resolvedMeta = resolveMutationMeta(meta);
 
     return this.examsRepository.inSerializedTransaction(async (transaction) => {
       const nowIso = new Date().toISOString();
-      const exam = await this.examsRepository.saveExam({
-        id: randomUUID(),
-        tenantId: principal.tenantId,
-        patientId: normalized.patientId,
-        requestedByProfessionalId: principal.id,
-        examType: normalized.examType,
-        status: EXAM_STATUS.PENDING,
-        notes: normalized.notes,
-        readyAtIso: null,
-        deliveredAtIso: null,
-        attachments: normalized.attachments,
-        createdAtIso: nowIso,
-        updatedAtIso: nowIso
-      }, transaction);
+      const exam = await this.examsRepository.saveExam(
+        {
+          id: randomUUID(),
+          tenantId: principal.tenantId,
+          patientId: normalized.patientId,
+          requestedByProfessionalId: principal.id,
+          examType: normalized.examType,
+          status: EXAM_STATUS.PENDING,
+          notes: normalized.notes,
+          readyAtIso: null,
+          deliveredAtIso: null,
+          attachments: normalized.attachments,
+          createdAtIso: nowIso,
+          updatedAtIso: nowIso
+        },
+        transaction
+      );
 
       await this.auditRepository.saveDomainEvent(
         {
@@ -68,12 +86,21 @@ export class ExamsService {
     });
   }
 
-  async updateExam(principal: AuthPrincipal, examId: string, input: UpdateExamRequest, meta?: MutationMeta): Promise<ExamResponse> {
+  async updateExam(
+    principal: AuthPrincipal,
+    examId: string,
+    input: UpdateExamRequest,
+    meta?: MutationMeta
+  ): Promise<ExamResponse> {
     const normalized = normalizeUpdateExamInput(input);
     const resolvedMeta = resolveMutationMeta(meta);
 
     return this.examsRepository.inSerializedTransaction(async (transaction) => {
-      const existing = await this.examsRepository.findExamWithinTenant(principal.tenantId, examId, transaction);
+      const existing = await this.examsRepository.findExamWithinTenant(
+        principal,
+        examId,
+        transaction
+      );
       if (!existing) {
         throw new NotFoundException("Exam not found");
       }
@@ -123,7 +150,11 @@ export class ExamsService {
     const resolvedMeta = resolveMutationMeta(meta);
 
     return this.examsRepository.inSerializedTransaction(async (transaction) => {
-      const existing = await this.examsRepository.findExamWithinTenant(principal.tenantId, examId, transaction);
+      const existing = await this.examsRepository.findExamWithinTenant(
+        principal,
+        examId,
+        transaction
+      );
       if (!existing) {
         throw new NotFoundException("Exam not found");
       }
@@ -135,9 +166,14 @@ export class ExamsService {
         {
           ...existing,
           status: input.toStatus,
-          readyAtIso: input.toStatus === EXAM_STATUS.READY && existing.readyAtIso === null ? nowIso : existing.readyAtIso,
+          readyAtIso:
+            input.toStatus === EXAM_STATUS.READY && existing.readyAtIso === null
+              ? nowIso
+              : existing.readyAtIso,
           deliveredAtIso:
-            input.toStatus === EXAM_STATUS.DELIVERED && existing.deliveredAtIso === null ? nowIso : existing.deliveredAtIso,
+            input.toStatus === EXAM_STATUS.DELIVERED && existing.deliveredAtIso === null
+              ? nowIso
+              : existing.deliveredAtIso,
           updatedAtIso: nowIso
         },
         transaction
@@ -183,14 +219,22 @@ export class ExamsService {
     });
   }
 
-  async listPatientExams(principal: AuthPrincipal, patientId: string, query: ListPatientExamsQuery): Promise<ExamsListResponse> {
+  async listPatientExams(
+    principal: AuthPrincipal,
+    patientId: string,
+    query: ListPatientExamsQuery
+  ): Promise<ExamsListResponse> {
     const normalizedPatientId = patientId.trim();
     if (!normalizedPatientId) {
       throw new BadRequestException("patientId is required");
     }
 
     const visibilityScope = normalizeVisibilityScope(query.visibilityScope);
-    const exams = await this.examsRepository.listPatientExams(principal.tenantId, normalizedPatientId, visibilityScope);
+    const exams = await this.examsRepository.listPatientExams(
+      principal,
+      normalizedPatientId,
+      visibilityScope
+    );
     return {
       patientId: normalizedPatientId,
       visibilityScope,
@@ -198,13 +242,21 @@ export class ExamsService {
     };
   }
 
-  async getExamStatus(principal: AuthPrincipal, examId: string): Promise<{ examId: string; status: ExamStatus; readyAtIso: string | null; deliveredAtIso: string | null }> {
+  async getExamStatus(
+    principal: AuthPrincipal,
+    examId: string
+  ): Promise<{
+    examId: string;
+    status: ExamStatus;
+    readyAtIso: string | null;
+    deliveredAtIso: string | null;
+  }> {
     const normalizedExamId = examId.trim();
     if (!normalizedExamId) {
       throw new BadRequestException("examId is required");
     }
 
-    const exam = await this.examsRepository.findExamWithinTenant(principal.tenantId, normalizedExamId);
+    const exam = await this.examsRepository.findExamWithinTenant(principal, normalizedExamId);
     if (!exam) {
       throw new NotFoundException("Exam not found");
     }
@@ -244,7 +296,9 @@ function normalizeUpdateExamInput<T extends CreateExamRequest | UpdateExamReques
   };
 }
 
-function normalizeAttachments(attachments: CreateExamRequest["attachments"]): CreateExamRequest["attachments"] {
+function normalizeAttachments(
+  attachments: CreateExamRequest["attachments"]
+): CreateExamRequest["attachments"] {
   return attachments.map((attachment) => {
     if (!attachment.attachmentId) {
       throw new BadRequestException("attachments.attachmentId is required");
@@ -281,7 +335,10 @@ function normalizeNullableText(value: string | null): string | null {
 }
 
 function normalizeVisibilityScope(value: string): ExamListVisibilityScope {
-  if (value === EXAM_LIST_VISIBILITY_SCOPE.ALL || value === EXAM_LIST_VISIBILITY_SCOPE.PATIENT_VISIBLE) {
+  if (
+    value === EXAM_LIST_VISIBILITY_SCOPE.ALL ||
+    value === EXAM_LIST_VISIBILITY_SCOPE.PATIENT_VISIBLE
+  ) {
     return value;
   }
 
@@ -289,7 +346,11 @@ function normalizeVisibilityScope(value: string): ExamListVisibilityScope {
 }
 
 function assertExamStatus(value: string): asserts value is ExamStatus {
-  if (value === EXAM_STATUS.PENDING || value === EXAM_STATUS.READY || value === EXAM_STATUS.DELIVERED) {
+  if (
+    value === EXAM_STATUS.PENDING ||
+    value === EXAM_STATUS.READY ||
+    value === EXAM_STATUS.DELIVERED
+  ) {
     return;
   }
 

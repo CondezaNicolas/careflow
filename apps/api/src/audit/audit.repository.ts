@@ -1,9 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 
+import { resolveQueryExecutor, type QueryExecutor } from "../common/db/repository.utils.js";
 import { DatabaseService, type DatabaseTransaction } from "../db/database.service.js";
 import type { DomainAuditEvent } from "./audit.types.js";
-
-type QueryExecutor = DatabaseService | DatabaseTransaction;
 
 @Injectable()
 export class AuditRepository {
@@ -44,6 +43,6 @@ export class AuditRepository {
   }
 
   private getExecutor(transaction?: DatabaseTransaction): QueryExecutor {
-    return transaction ?? this.databaseService;
+    return resolveQueryExecutor(this.databaseService, transaction);
   }
 }

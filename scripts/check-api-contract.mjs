@@ -28,7 +28,9 @@ async function main() {
 
 function assertCriticalEndpoints(paths) {
   const required = [
-    ["/auth/callback", "get"],
+    ["/auth/login", "post"],
+    ["/auth/refresh", "post"],
+    ["/auth/logout", "post"],
     ["/health/live", "get"],
     ["/health/ready", "get"],
     ["/ops/outbox/health", "get"],
@@ -74,7 +76,9 @@ function assertSchedulingWriteIdempotency(paths) {
 
 function assertCriticalFailureResponses(paths) {
   const requiredFailures = {
-    "/auth/callback": ["401"],
+    "/auth/login": ["400", "401", "429"],
+    "/auth/refresh": ["400", "401", "429"],
+    "/auth/logout": ["400", "401", "429"],
     "/ops/outbox/health": ["403"],
     "/ops/metrics": ["403"],
     "/ops/diagnostics": ["403"],

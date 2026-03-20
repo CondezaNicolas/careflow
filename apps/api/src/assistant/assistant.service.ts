@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 import {
   BadRequestException,
@@ -6,13 +6,14 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  Logger,
   NotFoundException
 } from "@nestjs/common";
 
 import type { AuthPrincipal } from "@lia/shared-types";
 import { AUDIT_SOURCE, type MutationMeta } from "../audit/audit.types.js";
 import { USER_ROLE, type UserRole } from "../common/constants/user-role.js";
+import { getLogger, normalizeError } from "../common/observability/platform-logger.js";
+import { PlatformConfigService } from "../config/platform-config.service.js";
 import { ExamsService } from "../exams/exams.service.js";
 import {
   type CreateAppointmentRequest,
@@ -51,31 +52,56 @@ const WRITE_TOOLS = {
 } as const;
 
 const TOOL_ALLOWED_ROLES: Record<AssistantToolName, readonly UserRole[]> = {
-  [ASSISTANT_TOOL_NAME.AVAILABILITY_SEARCH]: [USER_ROLE.ADMIN, USER_ROLE.CLINICIAN, USER_ROLE.RECEPTIONIST],
-  [ASSISTANT_TOOL_NAME.APPOINTMENTS_CREATE]: [USER_ROLE.ADMIN, USER_ROLE.CLINICIAN, USER_ROLE.RECEPTIONIST],
-  [ASSISTANT_TOOL_NAME.APPOINTMENTS_RESCHEDULE]: [USER_ROLE.ADMIN, USER_ROLE.CLINICIAN, USER_ROLE.RECEPTIONIST],
-  [ASSISTANT_TOOL_NAME.APPOINTMENTS_CANCEL]: [USER_ROLE.ADMIN, USER_ROLE.CLINICIAN, USER_ROLE.RECEPTIONIST],
-  [ASSISTANT_TOOL_NAME.EXAMS_STATUS_GET]: [USER_ROLE.ADMIN, USER_ROLE.CLINICIAN, USER_ROLE.RECEPTIONIST],
-  [ASSISTANT_TOOL_NAME.NEWS_LIST]: [USER_ROLE.ADMIN, USER_ROLE.CLINICIAN, USER_ROLE.RECEPTIONIST, USER_ROLE.PATIENT]
+  [ASSISTANT_TOOL_NAME.AVAILABILITY_SEARCH]: [
+    USER_ROLE.ADMIN,
+    USER_ROLE.CLINICIAN,
+    USER_ROLE.RECEPTIONIST
+  ],
+  [ASSISTANT_TOOL_NAME.APPOINTMENTS_CREATE]: [
+    USER_ROLE.ADMIN,
+    USER_ROLE.CLINICIAN,
+    USER_ROLE.RECEPTIONIST
+  ],
+  [ASSISTANT_TOOL_NAME.APPOINTMENTS_RESCHEDULE]: [
+    USER_ROLE.ADMIN,
+    USER_ROLE.CLINICIAN,
+    USER_ROLE.RECEPTIONIST
+  ],
+  [ASSISTANT_TOOL_NAME.APPOINTMENTS_CANCEL]: [
+    USER_ROLE.ADMIN,
+    USER_ROLE.CLINICIAN,
+    USER_ROLE.RECEPTIONIST
+  ],
+  [ASSISTANT_TOOL_NAME.EXAMS_STATUS_GET]: [
+    USER_ROLE.ADMIN,
+    USER_ROLE.CLINICIAN,
+    USER_ROLE.RECEPTIONIST
+  ],
+  [ASSISTANT_TOOL_NAME.NEWS_LIST]: [
+    USER_ROLE.ADMIN,
+    USER_ROLE.CLINICIAN,
+    USER_ROLE.RECEPTIONIST,
+    USER_ROLE.PATIENT
+  ]
 };
 
 const DEFAULT_NEWS_ITEMS: AssistantNewsItem[] = [
   {
     id: "placeholder-1",
     title: "No clinic bulletins yet",
-    summary: "This MVP placeholder confirms news.list wiring. Replace with CMS-backed feed in a later batch.",
+    summary:
+      "This MVP placeholder confirms news.list wiring. Replace with CMS-backed feed in a later batch.",
     publishedAtIso: "2026-01-01T00:00:00.000Z"
   }
 ];
 
 @Injectable()
 export class AssistantService {
-  private readonly logger = new Logger(AssistantService.name);
-
   constructor(
     @Inject(SchedulingService) private readonly schedulingService: SchedulingService,
     @Inject(ExamsService) private readonly examsService: ExamsService,
-    @Inject(AssistantRepository) private readonly assistantRepository: AssistantRepository
+    @Inject(AssistantRepository) private readonly assistantRepository: AssistantRepository,
+    @Inject(PlatformConfigService) private readonly platformConfig: PlatformConfigService
   ) {}
 
   async invokeTool(
@@ -115,7 +141,7 @@ export class AssistantService {
       }
 
       if (isWriteAction) {
-        const token = buildConfirmationToken(toolName, principal, request.input);
+        const token = this.buildConfirmationToken(toolName, principal, request.input);
         if (!confirmation?.confirmed) {
           response = {
             tool: toolName,
@@ -154,7 +180,13 @@ export class AssistantService {
         }
       }
 
-      response = await this.invokeAuthorizedTool(principal, toolName, request.input, confirmation, meta);
+      response = await this.invokeAuthorizedTool(
+        principal,
+        toolName,
+        request.input,
+        confirmation,
+        meta
+      );
       return response;
     } catch (error) {
       response = await this.mapRuntimeError(toolName, principal, request.input, error);
@@ -193,7 +225,12 @@ export class AssistantService {
         startAtIso: parsed.startAtIso,
         endAtIso: parsed.endAtIso
       };
-      const result = await this.schedulingService.createAppointment(principal, command, parsed.idempotencyKey, assistantMeta);
+      const result = await this.schedulingService.createAppointment(
+        principal,
+        command,
+        parsed.idempotencyKey,
+        assistantMeta
+      );
       return success(toolName, result, true, confirmation);
     }
 
@@ -216,7 +253,12 @@ export class AssistantService {
 
     if (toolName === ASSISTANT_TOOL_NAME.APPOINTMENTS_CANCEL) {
       const parsed = parseCancelInput(input);
-      const result = await this.schedulingService.cancelAppointment(principal, parsed.appointmentId, parsed.idempotencyKey, assistantMeta);
+      const result = await this.schedulingService.cancelAppointment(
+        principal,
+        parsed.appointmentId,
+        parsed.idempotencyKey,
+        assistantMeta
+      );
       return success(toolName, result, true, confirmation);
     }
 
@@ -319,7 +361,10 @@ export class AssistantService {
       };
     }
 
-    this.logger.error("assistant tool invocation failed", error instanceof Error ? error.stack : undefined);
+    getLogger({ component: AssistantService.name }).error({
+      event: "assistant.tool_invocation.failed",
+      error: normalizeError(error)
+    });
 
     return {
       tool: toolName,
@@ -343,7 +388,10 @@ export class AssistantService {
     principal: AuthPrincipal,
     input: unknown
   ): Promise<AssistantAlternativeSlot[]> {
-    if (toolName !== ASSISTANT_TOOL_NAME.APPOINTMENTS_CREATE && toolName !== ASSISTANT_TOOL_NAME.APPOINTMENTS_RESCHEDULE) {
+    if (
+      toolName !== ASSISTANT_TOOL_NAME.APPOINTMENTS_CREATE &&
+      toolName !== ASSISTANT_TOOL_NAME.APPOINTMENTS_RESCHEDULE
+    ) {
       return [];
     }
 
@@ -356,7 +404,9 @@ export class AssistantService {
         ? parseCreateInput(input).startAtIso
         : parseRescheduleInput(input).startAtIso;
     const endAtIso =
-      toolName === ASSISTANT_TOOL_NAME.APPOINTMENTS_CREATE ? parseCreateInput(input).endAtIso : parseRescheduleInput(input).endAtIso;
+      toolName === ASSISTANT_TOOL_NAME.APPOINTMENTS_CREATE
+        ? parseCreateInput(input).endAtIso
+        : parseRescheduleInput(input).endAtIso;
 
     const start = new Date(startAtIso);
     const end = new Date(endAtIso);
@@ -402,6 +452,24 @@ export class AssistantService {
     };
     await this.assistantRepository.saveAuditRecord(record);
   }
+
+  private buildConfirmationToken(
+    toolName: AssistantToolName,
+    principal: AuthPrincipal,
+    input: unknown
+  ): string {
+    const payload = JSON.stringify({
+      tenantId: principal.tenantId,
+      actorId: principal.id,
+      toolName,
+      input
+    });
+
+    return createHmac("sha256", this.platformConfig.cookies.sessionSecret)
+      .update(payload)
+      .digest("hex")
+      .slice(0, 24);
+  }
 }
 
 function success(
@@ -424,7 +492,9 @@ function success(
   };
 }
 
-function normalizeConfirmation(value: AssistantWriteConfirmation | undefined): AssistantWriteConfirmation | null {
+function normalizeConfirmation(
+  value: AssistantWriteConfirmation | undefined
+): AssistantWriteConfirmation | null {
   if (!value) {
     return null;
   }
@@ -519,14 +589,4 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
 
   const normalized = value.trim();
   return normalized ? normalized : null;
-}
-
-function buildConfirmationToken(toolName: AssistantToolName, principal: AuthPrincipal, input: unknown): string {
-  const payload = JSON.stringify({
-    tenantId: principal.tenantId,
-    actorId: principal.id,
-    toolName,
-    input
-  });
-  return createHash("sha256").update(payload).digest("hex").slice(0, 24);
 }

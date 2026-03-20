@@ -50,12 +50,15 @@ export interface UpdateClinicalNoteRequest {
 
 export interface ClinicalTimelineQuery {
   visibilityScope: ClinicalTimelineVisibilityScope;
+  limit?: number;
+  offset?: number;
 }
 
 export interface ClinicalTimelineResponse {
   patientId: string;
   visibilityScope: ClinicalTimelineVisibilityScope;
   entries: ClinicalTimelineEntry[];
+  total: number;
 }
 
 export interface ClinicalEncounterResponse {

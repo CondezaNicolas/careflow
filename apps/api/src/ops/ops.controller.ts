@@ -1,29 +1,28 @@
-import { Controller, Get, Inject, UseGuards } from "@nestjs/common";
+import { Controller, Get, Inject } from "@nestjs/common";
+import type { AuthPrincipal } from "@lia/shared-types";
 
+import { CurrentUser } from "../auth/decorators/current-user.decorator.js";
 import { Roles } from "../auth/decorators/roles.decorator.js";
-import { AuthenticatedGuard } from "../auth/guards/authenticated.guard.js";
-import { RolesGuard } from "../auth/guards/roles.guard.js";
 import { USER_ROLE } from "../common/constants/user-role.js";
 import { OpsService } from "./ops.service.js";
 
 @Controller("ops")
-@UseGuards(AuthenticatedGuard, RolesGuard)
 @Roles(USER_ROLE.ADMIN)
 export class OpsController {
   constructor(@Inject(OpsService) private readonly opsService: OpsService) {}
 
   @Get("outbox/health")
-  getOutboxHealth() {
-    return this.opsService.getOutboxHealth();
+  getOutboxHealth(@CurrentUser() principal: AuthPrincipal) {
+    return this.opsService.getOutboxHealth(principal);
   }
 
   @Get("metrics")
-  getMetrics() {
-    return this.opsService.getApiMetrics();
+  getMetrics(@CurrentUser() principal: AuthPrincipal) {
+    return this.opsService.getApiMetrics(principal);
   }
 
   @Get("diagnostics")
-  getDiagnostics() {
-    return this.opsService.getReleaseDiagnostics();
+  getDiagnostics(@CurrentUser() principal: AuthPrincipal) {
+    return this.opsService.getReleaseDiagnostics(principal);
   }
 }

@@ -9,14 +9,30 @@ export interface TenantScope {
   [TENANT_SCOPE_BRAND]: true;
 }
 
-export function tenantScopeFromPrincipal(principal: AuthPrincipal): TenantScope {
+export interface TenantScopeInput {
+  tenantId: string;
+}
+
+export function tenantScopeFromTenantId(tenantId: string): TenantScope {
   return {
-    tenantId: principal.tenantId,
+    tenantId,
     [TENANT_SCOPE_BRAND]: true
   };
 }
 
-export function assertTenantScope(principal: AuthPrincipal, tenantId: string): TenantScope {
+export function tenantScopeFromPrincipal(principal: AuthPrincipal): TenantScope {
+  return tenantScopeFromTenantId(principal.tenantId);
+}
+
+export function tenantIdFromScope(scope: TenantScopeInput): string {
+  return scope.tenantId;
+}
+
+export function assertTenantScope(
+  principal: AuthPrincipal,
+  tenant: TenantScopeInput | string
+): TenantScope {
+  const tenantId = typeof tenant === "string" ? tenant : tenantIdFromScope(tenant);
   if (principal.tenantId !== tenantId) {
     throw new ForbiddenException("Cross-tenant access denied");
   }

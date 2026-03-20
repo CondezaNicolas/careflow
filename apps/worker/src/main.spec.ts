@@ -396,9 +396,10 @@ describe("google calendar outbox worker", () => {
     const secondRun = await worker.processPending(10);
     assert.equal(secondRun.failed, 1);
 
-    const outbox = await pool.query<{ status: string }>("SELECT status FROM outbox_events WHERE id = $1", [
-      TEST_NOTIFICATION_OUTBOX_SECOND
-    ]);
+    const outbox = await pool.query<{ status: string }>(
+      "SELECT status FROM outbox_events WHERE id = $1",
+      [TEST_NOTIFICATION_OUTBOX_SECOND]
+    );
     assert.equal(outbox.rows[0]?.status, "failed");
 
     const attemptsStored = await pool.query<{ count: string }>(
@@ -417,7 +418,8 @@ describe("google calendar outbox worker", () => {
 
 function ensureTestEnv(): void {
   process.env.NODE_ENV = "test";
-  process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgresql://lia:lia@localhost:5432/lia_clinic";
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/lia_clinic";
 }
 
 async function prepareTestDatabaseUrl(baseDatabaseUrl: string): Promise<string> {
@@ -453,7 +455,9 @@ function quoteIdentifier(value: string): string {
 
 async function applyApiMigrations(pool: Pool): Promise<void> {
   const migrationsDirectory = resolve(process.cwd(), "../api/src/db/migrations");
-  const migrationFiles = (await readdir(migrationsDirectory)).filter((file) => file.endsWith(".sql")).sort();
+  const migrationFiles = (await readdir(migrationsDirectory))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
 
   for (const file of migrationFiles) {
     const sql = await readFile(join(migrationsDirectory, file), "utf8");

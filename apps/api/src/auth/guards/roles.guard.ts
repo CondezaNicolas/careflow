@@ -1,13 +1,14 @@
-import { CanActivate, ExecutionContext, Inject, Injectable } from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
-import type { UserRole } from "../../common/constants/user-role.js";
+import type { UserRole } from "@lia/shared-types";
+
+import { getRequestPrincipal, type AuthenticatedRequest } from "../auth.types.js";
 import { ROLES_KEY } from "../decorators/roles.decorator.js";
-import type { RequestWithPrincipal } from "./authenticated.guard.js";
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+  constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const allowedRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
@@ -18,7 +19,9 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<RequestWithPrincipal>();
-    return Boolean(request.principal && allowedRoles.includes(request.principal.role));
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const principal = getRequestPrincipal(request);
+
+    return principal != null && allowedRoles.includes(principal.role);
   }
 }

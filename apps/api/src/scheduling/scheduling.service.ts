@@ -54,20 +54,26 @@ export class SchedulingService {
     }
 
     const windows = await this.schedulingRepository.listAvailabilityWithinRange(
-      principal.tenantId,
+      principal,
       query.specialistId,
       query.fromIso,
       query.toIso
     );
     const appointments = await this.schedulingRepository.listActiveAppointmentsForSpecialist(
-      principal.tenantId,
+      principal,
       query.specialistId
     );
 
     const durationMs = query.durationMinutes * 60_000;
     const slots = windows.flatMap((window) => {
-      const windowStart = Math.max(parseIso(window.startAtIso, "window.startAtIso").getTime(), from.getTime());
-      const windowEnd = Math.min(parseIso(window.endAtIso, "window.endAtIso").getTime(), to.getTime());
+      const windowStart = Math.max(
+        parseIso(window.startAtIso, "window.startAtIso").getTime(),
+        from.getTime()
+      );
+      const windowEnd = Math.min(
+        parseIso(window.endAtIso, "window.endAtIso").getTime(),
+        to.getTime()
+      );
       if (windowStart >= windowEnd) {
         return [];
       }
@@ -132,7 +138,7 @@ export class SchedulingService {
     try {
       return await this.schedulingRepository.inSerializedTransaction(async (transaction) => {
         await this.schedulingRepository.acquireIdempotencyLock(
-          principal.tenantId,
+          principal,
           APPOINTMENT_OPERATION.CREATE,
           idempotencyKey,
           transaction
@@ -150,7 +156,7 @@ export class SchedulingService {
         }
 
         await this.schedulingRepository.acquireSpecialistLocks(
-          principal.tenantId,
+          principal,
           [normalized.specialistId],
           transaction
         );
@@ -185,7 +191,10 @@ export class SchedulingService {
           calendarLastSyncedAtIso: null,
           calendarSyncUpdatedAtIso: nowIso
         };
-        const savedAppointment = await this.schedulingRepository.saveAppointment(appointment, transaction);
+        const savedAppointment = await this.schedulingRepository.saveAppointment(
+          appointment,
+          transaction
+        );
 
         return this.persistMutationAndRespond(
           principal,
@@ -217,7 +226,7 @@ export class SchedulingService {
     try {
       return await this.schedulingRepository.inSerializedTransaction(async (transaction) => {
         await this.schedulingRepository.acquireIdempotencyLock(
-          principal.tenantId,
+          principal,
           APPOINTMENT_OPERATION.RESCHEDULE,
           idempotencyKey,
           transaction
@@ -235,7 +244,7 @@ export class SchedulingService {
         }
 
         const existing = await this.schedulingRepository.findAppointmentWithinTenant(
-          principal.tenantId,
+          principal,
           appointmentId,
           transaction
         );
@@ -248,7 +257,7 @@ export class SchedulingService {
         }
 
         await this.schedulingRepository.acquireSpecialistLocks(
-          principal.tenantId,
+          principal,
           [existing.specialistId, normalized.specialistId],
           transaction
         );
@@ -276,7 +285,10 @@ export class SchedulingService {
           calendarLastSyncedAtIso: null,
           calendarSyncUpdatedAtIso: new Date().toISOString()
         };
-        const savedAppointment = await this.schedulingRepository.saveAppointment(updated, transaction);
+        const savedAppointment = await this.schedulingRepository.saveAppointment(
+          updated,
+          transaction
+        );
 
         return this.persistMutationAndRespond(
           principal,
@@ -306,7 +318,7 @@ export class SchedulingService {
     try {
       return await this.schedulingRepository.inSerializedTransaction(async (transaction) => {
         await this.schedulingRepository.acquireIdempotencyLock(
-          principal.tenantId,
+          principal,
           APPOINTMENT_OPERATION.CANCEL,
           idempotencyKey,
           transaction
@@ -324,7 +336,7 @@ export class SchedulingService {
         }
 
         const existing = await this.schedulingRepository.findAppointmentWithinTenant(
-          principal.tenantId,
+          principal,
           appointmentId,
           transaction
         );
@@ -333,7 +345,7 @@ export class SchedulingService {
         }
 
         await this.schedulingRepository.acquireSpecialistLocks(
-          principal.tenantId,
+          principal,
           [existing.specialistId],
           transaction
         );
@@ -352,7 +364,10 @@ export class SchedulingService {
           calendarLastSyncedAtIso: null,
           calendarSyncUpdatedAtIso: new Date().toISOString()
         };
-        const savedAppointment = await this.schedulingRepository.saveAppointment(canceled, transaction);
+        const savedAppointment = await this.schedulingRepository.saveAppointment(
+          canceled,
+          transaction
+        );
 
         return this.persistMutationAndRespond(
           principal,
@@ -382,7 +397,7 @@ export class SchedulingService {
     transaction?: DatabaseTransaction
   ): Promise<void> {
     const windows = await this.schedulingRepository.listAvailabilityWithinRange(
-      tenantId,
+      { tenantId },
       specialistId,
       startAtIso,
       endAtIso,
@@ -396,7 +411,7 @@ export class SchedulingService {
     }
 
     const appointments = await this.schedulingRepository.listActiveAppointmentsForSpecialist(
-      tenantId,
+      { tenantId },
       specialistId,
       transaction
     );
@@ -421,7 +436,7 @@ export class SchedulingService {
     transaction: DatabaseTransaction
   ): Promise<AppointmentMutationResponse | null> {
     const existing = await this.schedulingRepository.findIdempotencyRecord(
-      tenantId,
+      { tenantId },
       idempotencyKey,
       operation,
       transaction
@@ -561,7 +576,9 @@ function normalizeAppointmentInput(input: CreateAppointmentRequest): CreateAppoi
   };
 }
 
-function normalizeRescheduleInput(input: RescheduleAppointmentRequest): RescheduleAppointmentRequest {
+function normalizeRescheduleInput(
+  input: RescheduleAppointmentRequest
+): RescheduleAppointmentRequest {
   if (!input.specialistId) {
     throw new BadRequestException("specialistId is required");
   }
@@ -579,7 +596,12 @@ function normalizeRescheduleInput(input: RescheduleAppointmentRequest): Reschedu
   };
 }
 
-function rangeContains(containerStartIso: string, containerEndIso: string, targetStartIso: string, targetEndIso: string): boolean {
+function rangeContains(
+  containerStartIso: string,
+  containerEndIso: string,
+  targetStartIso: string,
+  targetEndIso: string
+): boolean {
   const containerStart = new Date(containerStartIso).getTime();
   const containerEnd = new Date(containerEndIso).getTime();
   const targetStart = new Date(targetStartIso).getTime();

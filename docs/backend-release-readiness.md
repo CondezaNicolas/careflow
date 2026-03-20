@@ -4,15 +4,13 @@ This runbook is the final backend-only go-live gate for `lia-clinic-core`.
 
 ## 1) Environment sanity
 
-- Copy `.env.example` into `.env` and provide production-safe values.
+- Copy `.env.example` into `.env.local` for local work, or into your deployment secret store for real environments.
 - Required backend keys:
   - `DATABASE_URL`
-  - `OIDC_ISSUER`
-  - `OIDC_CLIENT_ID`
-  - `OIDC_CLIENT_SECRET`
-  - `OIDC_REDIRECT_URI`
+  - `JWT_SECRET`
+  - `JWT_REFRESH_SECRET`
   - `SESSION_COOKIE_NAME`
-  - `SESSION_TTL_MINUTES`
+  - `SESSION_SECRET`
   - `GOOGLE_CALENDAR_CLIENT_ID`
   - `GOOGLE_CALENDAR_CLIENT_SECRET`
   - `GOOGLE_CALENDAR_REFRESH_TOKEN`
@@ -24,11 +22,13 @@ This runbook is the final backend-only go-live gate for `lia-clinic-core`.
   - `WHATSAPP_BUSINESS_ACCOUNT_ID`
 - For non-test environments, use:
   - `DATABASE_URL` with `postgresql://`
-  - `OIDC_ISSUER` and `OIDC_REDIRECT_URI` with `https://`
+  - strong random values for `JWT_SECRET`, `JWT_REFRESH_SECRET`, and `SESSION_SECRET`
+  - `AUTH_DEV_BYPASS=false` and `DEV_LOGIN_ENABLED=false`
 
 Provider integration note:
 
-- `GET /ops/diagnostics` now returns `preflight` integration readiness for `oidc`, `google_calendar`, `email`, and `whatsapp`.
+- `GET /ops/diagnostics` now returns the resolved runtime mode plus `preflight` integration readiness for `google_calendar`, `email`, and `whatsapp`.
+- `GET /ops/diagnostics` also surfaces request logging, request timeout, and graceful shutdown settings so operators can verify runtime hardening without shell access.
 - In `production`, `google_calendar`, `email`, and `whatsapp` are blocking readiness checks.
 - In `development` and `test`, provider checks are visible but non-blocking.
 
@@ -69,7 +69,7 @@ Admin endpoints (require admin session):
 
 ## 5) Production bring-up order (providers first)
 
-1. Provision and validate OIDC app callback (`/auth/callback`) and tenant/role claims.
+1. Provision production JWT and session secrets in your secret manager.
 2. Provision Google Calendar service account/user grant and confirm access to the configured calendar ID.
 3. Provision Email provider sender identity and API key with send permission.
 4. Provision WhatsApp business account, phone number id, and access token.
@@ -83,7 +83,7 @@ Admin endpoints (require admin session):
 ## 6) Smoke checks (post-deploy)
 
 - Auth:
-  - Complete one OIDC callback flow and confirm session cookie issuance.
+  - Complete one login + refresh flow and confirm the session cookie is issued and cleared on logout.
 - Scheduling/Calendar:
   - Create or reschedule one appointment and confirm a corresponding outbox event is processed by worker.
 - Notifications:
@@ -109,7 +109,7 @@ If release fails readiness/smoke gates:
 
 The following are required to pass production preflight but are external to this repository:
 
-- OIDC tenant/app provisioning and redirect URI registration.
+- Production JWT/session secret provisioning and rotation.
 - Google Calendar OAuth/client and refresh-token provisioning.
 - Email provider account/domain verification and API credentials.
 - WhatsApp business account setup and messaging credentials.

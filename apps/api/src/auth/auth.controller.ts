@@ -1,93 +1,116 @@
-import { BadRequestException, Controller, Get, Inject, Query, Res } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Post,
+  Query,
+  Res,
+  HttpCode,
+  HttpStatus
+} from "@nestjs/common";
+import type { AuthPrincipal } from "@lia/shared-types";
 import type { Response } from "express";
 
 import { AuthService } from "./auth.service.js";
+import { DevLoginQueryDto, LoginDto, RegisterDto, RefreshDto } from "./dtos/index.js";
+import { CurrentUser } from "./decorators/current-user.decorator.js";
+import { Public } from "./decorators/public.decorator.js";
+import { Roles } from "./decorators/roles.decorator.js";
+import { USER_ROLE } from "../common/constants/user-role.js";
+import { PlatformConfigService } from "../config/platform-config.service.js";
+
+const AUTHENTICATED_USER_ROLE = [
+  USER_ROLE.ADMIN,
+  USER_ROLE.CLINICIAN,
+  USER_ROLE.RECEPTIONIST,
+  USER_ROLE.PATIENT
+] as const;
 
 @Controller("auth")
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(PlatformConfigService) private readonly platformConfig: PlatformConfigService
+  ) {}
 
-  @Get("callback")
-  async callback(@Query("code") code: string, @Res({ passthrough: true }) response: Response) {
-    if (!code) {
-      throw new BadRequestException("Missing authorization code");
-    }
+  @Public()
+  @Post("register")
+  async register(@Body() dto: RegisterDto) {
+    const result = await this.authService.register(dto);
+    return { success: true, userId: result.userId };
+  }
 
-    const session = await this.authService.issueSessionFromOidcCode(code);
+  @Public()
+  @Post("login")
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.authService.login(dto);
 
-    // Set session ID cookie
-    response.cookie("lia_session", session.sessionId, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      expires: new Date(session.expiresAtIso),
-      path: "/"
-    });
-
-    // Set session context cookie for frontend
-    const sessionContext = Buffer.from(JSON.stringify({
-      principal: {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-        expiresAtIso: session.expiresAtIso
-      }
-    })).toString("base64url");
-
-    response.cookie("lia_session_ctx", sessionContext, {
-      httpOnly: false, // Frontend needs to read this
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      expires: new Date(session.expiresAtIso),
-      path: "/"
-    });
+    res.cookie(
+      this.platformConfig.cookies.sessionCookieName,
+      tokens.accessToken,
+      this.platformConfig.createAccessTokenCookieOptions(tokens.expiresIn)
+    );
 
     return {
-      userId: session.userId,
-      tenantId: session.tenantId,
-      role: session.role,
-      expiresAtIso: session.expiresAtIso
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn
     };
   }
 
-  // Dev mode login - bypass OIDC for local development
+  @Public()
+  @Post("refresh")
+  async refresh(@Body() dto: RefreshDto, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.authService.refresh(dto.refreshToken);
+
+    res.cookie(
+      this.platformConfig.cookies.sessionCookieName,
+      tokens.accessToken,
+      this.platformConfig.createAccessTokenCookieOptions(tokens.expiresIn)
+    );
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn
+    };
+  }
+
+  @Post("logout")
+  @HttpCode(HttpStatus.OK)
+  @Roles(...AUTHENTICATED_USER_ROLE)
+  async logout(
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: RefreshDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    await this.authService.logout(principal, dto.refreshToken);
+    res.clearCookie(
+      this.platformConfig.cookies.sessionCookieName,
+      this.platformConfig.createClearSessionCookieOptions()
+    );
+    return { success: true };
+  }
+
+  // Keep dev-login for convenience
+  @Public()
   @Get("dev-login")
-  async devLogin(@Query("role") role: string, @Query("redirect") redirectUrl: string, @Res({ passthrough: true }) response: Response) {
-    const validRoles = ["admin", "receptionist", "clinician", "patient"];
-    const selectedRole = validRoles.includes(role) ? role : "admin";
+  async devLogin(@Query() query: DevLoginQueryDto, @Res({ passthrough: true }) res: Response) {
+    const role = query.role ?? USER_ROLE.ADMIN;
+    const tokens = await this.authService.loginAsDevRole(role);
 
-    // Create a mock session for development
-    const session = await this.authService.createDevSession(selectedRole);
+    res.cookie(
+      this.platformConfig.cookies.sessionCookieName,
+      tokens.accessToken,
+      this.platformConfig.createAccessTokenCookieOptions(tokens.expiresIn)
+    );
 
-    // Set session ID cookie
-    response.cookie("lia_session", session.sessionId, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      expires: new Date(session.expiresAtIso),
-      path: "/"
-    });
-
-    // Set session context cookie for frontend
-    const sessionContext = Buffer.from(JSON.stringify({
-      principal: {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-        expiresAtIso: session.expiresAtIso
-      }
-    })).toString("base64url");
-
-    response.cookie("lia_session_ctx", sessionContext, {
-      httpOnly: false, // Frontend needs to read this
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      expires: new Date(session.expiresAtIso),
-      path: "/"
-    });
-
-    // Redirect to frontend after successful login
-    const frontendUrl = redirectUrl || "http://localhost:3310";
-    response.redirect(frontendUrl);
+    return {
+      success: true,
+      role,
+      redirectUrl: query.redirect,
+      accessToken: tokens.accessToken
+    };
   }
 }

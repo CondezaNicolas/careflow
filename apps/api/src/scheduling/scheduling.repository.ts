@@ -2,6 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import { Inject, Injectable } from "@nestjs/common";
 
+import {
+  inSerializableTransaction,
+  resolveQueryExecutor,
+  type QueryExecutor
+} from "../common/db/repository.utils.js";
+import { tenantIdFromScope, type TenantScopeInput } from "../common/tenant/tenant-scope.js";
 import { DatabaseService, type DatabaseTransaction } from "../db/database.service.js";
 import {
   NOTIFICATION_OUTBOX_EVENT_TYPE,
@@ -17,22 +23,21 @@ import {
   type IdempotencyRecord
 } from "./scheduling.types.js";
 
-type QueryExecutor = DatabaseService | DatabaseTransaction;
-
 @Injectable()
 export class SchedulingRepository {
   constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
 
   inSerializedTransaction<T>(action: (transaction: DatabaseTransaction) => Promise<T>): Promise<T> {
-    return this.databaseService.transaction(action, { isolationLevel: "SERIALIZABLE" });
+    return inSerializableTransaction(this.databaseService, action);
   }
 
   async acquireIdempotencyLock(
-    tenantId: string,
+    scope: TenantScopeInput,
     operation: IdempotencyRecord["operation"],
     key: string,
     transaction: DatabaseTransaction
   ): Promise<void> {
+    const tenantId = tenantIdFromScope(scope);
     await transaction.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
       tenantId,
       `${operation}:${key}`
@@ -40,13 +45,17 @@ export class SchedulingRepository {
   }
 
   async acquireSpecialistLocks(
-    tenantId: string,
+    scope: TenantScopeInput,
     specialistIds: readonly string[],
     transaction: DatabaseTransaction
   ): Promise<void> {
+    const tenantId = tenantIdFromScope(scope);
     const uniqueSortedSpecialists = [...new Set(specialistIds)].sort();
     for (const specialistId of uniqueSortedSpecialists) {
-      await transaction.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [tenantId, specialistId]);
+      await transaction.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
+        tenantId,
+        specialistId
+      ]);
     }
   }
 
@@ -71,12 +80,13 @@ export class SchedulingRepository {
   }
 
   async listAvailabilityWithinRange(
-    tenantId: string,
+    scope: TenantScopeInput,
     specialistId: string,
     fromIso: string,
     toIso: string,
     transaction?: DatabaseTransaction
   ): Promise<AvailabilityWindow[]> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<AvailabilityWindowRow>(
       `
         SELECT id, tenant_id, specialist_id, start_at, end_at
@@ -100,10 +110,11 @@ export class SchedulingRepository {
   }
 
   async listActiveAppointmentsForSpecialist(
-    tenantId: string,
+    scope: TenantScopeInput,
     specialistId: string,
     transaction?: DatabaseTransaction
   ): Promise<Appointment[]> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<AppointmentRow>(
       `
         SELECT id, tenant_id, patient_id, specialist_id, start_at, end_at, status, canceled_at,
@@ -122,7 +133,10 @@ export class SchedulingRepository {
     return result.rows.map(mapAppointmentRow);
   }
 
-  async saveAppointment(appointment: Appointment, transaction?: DatabaseTransaction): Promise<Appointment> {
+  async saveAppointment(
+    appointment: Appointment,
+    transaction?: DatabaseTransaction
+  ): Promise<Appointment> {
     const result = await this.getExecutor(transaction).query<AppointmentRow>(
       `
         INSERT INTO scheduling_appointments (
@@ -194,10 +208,11 @@ export class SchedulingRepository {
   }
 
   async findAppointmentWithinTenant(
-    tenantId: string,
+    scope: TenantScopeInput,
     appointmentId: string,
     transaction?: DatabaseTransaction
   ): Promise<Appointment | null> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<AppointmentRow>(
       `
         SELECT id, tenant_id, patient_id, specialist_id, start_at, end_at, status, canceled_at,
@@ -216,10 +231,11 @@ export class SchedulingRepository {
   }
 
   async listAppointmentsForPatient(
-    tenantId: string,
+    scope: TenantScopeInput,
     patientId: string,
     transaction?: DatabaseTransaction
   ): Promise<Appointment[]> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<AppointmentRow>(
       `
         SELECT id, tenant_id, patient_id, specialist_id, start_at, end_at, status, canceled_at,
@@ -280,7 +296,7 @@ export class SchedulingRepository {
   }
 
   async markCalendarSyncResult(
-    tenantId: string,
+    scope: TenantScopeInput,
     appointmentId: string,
     input: {
       status: AppointmentSyncStatus;
@@ -293,6 +309,7 @@ export class SchedulingRepository {
     },
     transaction?: DatabaseTransaction
   ): Promise<void> {
+    const tenantId = tenantIdFromScope(scope);
     await this.getExecutor(transaction).query(
       `
         UPDATE scheduling_appointments
@@ -323,11 +340,12 @@ export class SchedulingRepository {
   }
 
   async findIdempotencyRecord(
-    tenantId: string,
+    scope: TenantScopeInput,
     key: string,
     operation: IdempotencyRecord["operation"],
     transaction?: DatabaseTransaction
   ): Promise<IdempotencyRecord | null> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.getExecutor(transaction).query<IdempotencyRecordRow>(
       `
         SELECT tenant_id, operation, idempotency_key, fingerprint, response_json
@@ -353,7 +371,10 @@ export class SchedulingRepository {
     };
   }
 
-  async saveIdempotencyRecord(record: IdempotencyRecord, transaction?: DatabaseTransaction): Promise<IdempotencyRecord> {
+  async saveIdempotencyRecord(
+    record: IdempotencyRecord,
+    transaction?: DatabaseTransaction
+  ): Promise<IdempotencyRecord> {
     await this.getExecutor(transaction).query(
       `
         INSERT INTO scheduling_idempotency_keys (tenant_id, operation, idempotency_key, fingerprint, response_json)
@@ -363,13 +384,20 @@ export class SchedulingRepository {
         SET fingerprint = EXCLUDED.fingerprint,
             response_json = EXCLUDED.response_json
       `,
-      [record.tenantId, record.operation, record.key, record.fingerprint, JSON.stringify(record.response)]
+      [
+        record.tenantId,
+        record.operation,
+        record.key,
+        record.fingerprint,
+        JSON.stringify(record.response)
+      ]
     );
 
     return record;
   }
 
-  async countAppointmentsWithinTenant(tenantId: string): Promise<number> {
+  async countAppointmentsWithinTenant(scope: TenantScopeInput): Promise<number> {
+    const tenantId = tenantIdFromScope(scope);
     const result = await this.databaseService.query<{ count: string }>(
       `
         SELECT COUNT(*)::text AS count
@@ -383,7 +411,7 @@ export class SchedulingRepository {
   }
 
   private getExecutor(transaction?: DatabaseTransaction): QueryExecutor {
-    return transaction ?? this.databaseService;
+    return resolveQueryExecutor(this.databaseService, transaction);
   }
 }
 

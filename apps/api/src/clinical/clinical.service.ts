@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 
 import type { AuthPrincipal } from "@lia/shared-types";
 import { USER_ROLE } from "../common/constants/user-role.js";
@@ -16,11 +22,17 @@ import type {
   UpdateClinicalNoteRequest
 } from "./clinical.contracts.js";
 import { ClinicalRepository } from "./clinical.repository.js";
-import { CLINICAL_NOTE_VISIBILITY, CLINICAL_TIMELINE_VISIBILITY_SCOPE, type ClinicalTimelineVisibilityScope } from "./clinical.types.js";
+import {
+  CLINICAL_NOTE_VISIBILITY,
+  CLINICAL_TIMELINE_VISIBILITY_SCOPE,
+  type ClinicalTimelineVisibilityScope
+} from "./clinical.types.js";
 
 @Injectable()
 export class ClinicalService {
-  constructor(@Inject(ClinicalRepository) private readonly clinicalRepository: ClinicalRepository) {}
+  constructor(
+    @Inject(ClinicalRepository) private readonly clinicalRepository: ClinicalRepository
+  ) {}
 
   async createEncounter(
     principal: AuthPrincipal,
@@ -54,7 +66,11 @@ export class ClinicalService {
     const normalized = normalizeUpdateEncounterInput(input);
 
     return this.clinicalRepository.inSerializedTransaction(async (transaction) => {
-      const existing = await this.clinicalRepository.findEncounterWithinTenant(principal.tenantId, encounterId, transaction);
+      const existing = await this.clinicalRepository.findEncounterWithinTenant(
+        principal,
+        encounterId,
+        transaction
+      );
       if (!existing) {
         throw new NotFoundException("Encounter not found");
       }
@@ -83,7 +99,11 @@ export class ClinicalService {
     const normalized = normalizeCreateNoteInput(input);
 
     return this.clinicalRepository.inSerializedTransaction(async (transaction) => {
-      const encounter = await this.clinicalRepository.findEncounterWithinTenant(principal.tenantId, encounterId, transaction);
+      const encounter = await this.clinicalRepository.findEncounterWithinTenant(
+        principal,
+        encounterId,
+        transaction
+      );
       if (!encounter) {
         throw new NotFoundException("Encounter not found");
       }
@@ -119,17 +139,28 @@ export class ClinicalService {
     });
   }
 
-  async updateNote(principal: AuthPrincipal, noteId: string, input: UpdateClinicalNoteRequest): Promise<ClinicalNoteResponse> {
+  async updateNote(
+    principal: AuthPrincipal,
+    noteId: string,
+    input: UpdateClinicalNoteRequest
+  ): Promise<ClinicalNoteResponse> {
     requireClinicalWritePermission(principal.role);
     const normalized = normalizeUpdateNoteInput(input);
 
     return this.clinicalRepository.inSerializedTransaction(async (transaction) => {
-      const existing = await this.clinicalRepository.findNoteWithinTenant(principal.tenantId, noteId, transaction);
+      const existing = await this.clinicalRepository.findNoteWithinTenant(
+        principal,
+        noteId,
+        transaction
+      );
       if (!existing) {
         throw new NotFoundException("Clinical note not found");
       }
 
-      if (principal.role === USER_ROLE.CLINICIAN && existing.authorProfessionalId !== principal.id) {
+      if (
+        principal.role === USER_ROLE.CLINICIAN &&
+        existing.authorProfessionalId !== principal.id
+      ) {
         throw new ForbiddenException("Clinicians can only edit their own clinical notes");
       }
 
@@ -160,17 +191,28 @@ export class ClinicalService {
     query: ClinicalTimelineQuery
   ): Promise<ClinicalTimelineResponse> {
     const visibilityScope = resolveTimelineVisibilityScope(principal, query.visibilityScope);
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
 
-    const entries = await this.clinicalRepository.listPatientTimeline(principal.tenantId, patientId, visibilityScope);
+    const { entries, total } = await this.clinicalRepository.listPatientTimeline(
+      principal,
+      patientId,
+      visibilityScope,
+      limit,
+      offset
+    );
     return {
       patientId,
       visibilityScope,
-      entries
+      entries,
+      total
     };
   }
 }
 
-function normalizeCreateEncounterInput(input: CreateClinicalEncounterRequest): CreateClinicalEncounterRequest {
+function normalizeCreateEncounterInput(
+  input: CreateClinicalEncounterRequest
+): CreateClinicalEncounterRequest {
   const patientId = input.patientId.trim();
   if (!patientId) {
     throw new BadRequestException("patientId is required");
@@ -183,8 +225,9 @@ function normalizeCreateEncounterInput(input: CreateClinicalEncounterRequest): C
   };
 }
 
-function normalizeUpdateEncounterInput(input: UpdateClinicalEncounterRequest): UpdateClinicalEncounterRequest {
-
+function normalizeUpdateEncounterInput(
+  input: UpdateClinicalEncounterRequest
+): UpdateClinicalEncounterRequest {
   const startedAt = parseIso(input.startedAtIso, "startedAtIso");
   const endedAt = input.endedAtIso ? parseIso(input.endedAtIso, "endedAtIso") : null;
   if (endedAt && startedAt.getTime() > endedAt.getTime()) {
@@ -211,7 +254,9 @@ function normalizeCreateNoteInput(input: CreateClinicalNoteRequest): CreateClini
   };
 }
 
-function normalizeUpdateNoteInput<T extends CreateClinicalNoteRequest | UpdateClinicalNoteRequest>(input: T): T {
+function normalizeUpdateNoteInput<T extends CreateClinicalNoteRequest | UpdateClinicalNoteRequest>(
+  input: T
+): T {
   assertVisibility(input.visibility);
   assertVitals(input.vitals);
 
@@ -260,7 +305,10 @@ function normalizeUpdateNoteInput<T extends CreateClinicalNoteRequest | UpdateCl
 }
 
 function assertVisibility(value: string): asserts value is "internal" | "patient_shared" {
-  if (value !== CLINICAL_NOTE_VISIBILITY.INTERNAL && value !== CLINICAL_NOTE_VISIBILITY.PATIENT_SHARED) {
+  if (
+    value !== CLINICAL_NOTE_VISIBILITY.INTERNAL &&
+    value !== CLINICAL_NOTE_VISIBILITY.PATIENT_SHARED
+  ) {
     throw new BadRequestException("visibility must be 'internal' or 'patient_shared'");
   }
 }

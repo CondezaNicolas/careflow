@@ -26,7 +26,11 @@ describe("scheduling service", () => {
   before(async () => {
     ensureTestEnv();
     process.env.DATABASE_URL = await prepareTestDatabaseUrl(process.env.DATABASE_URL!);
-    databaseService = new DatabaseService();
+    databaseService = new DatabaseService({
+      database: {
+        url: process.env.DATABASE_URL!
+      }
+    } as import("../config/platform-config.service.js").PlatformConfigService);
     repository = new SchedulingRepository(databaseService);
     auditRepository = {
       async saveDomainEvent() {
@@ -113,7 +117,7 @@ describe("scheduling service", () => {
 
     assert.equal(fulfilledCount, 1);
     assert.equal(rejectedCount, 1);
-    assert.equal(await repository.countAppointmentsWithinTenant(TENANT_A_CLINICIAN.tenantId), 1);
+    assert.equal(await repository.countAppointmentsWithinTenant(TENANT_A_CLINICIAN), 1);
   });
 
   it("supports idempotent replay for appointment writes", async () => {
@@ -141,7 +145,7 @@ describe("scheduling service", () => {
 
     assert.equal(replay.idempotencyReplay, true);
     assert.equal(first.appointment.id, replay.appointment.id);
-    assert.equal(await repository.countAppointmentsWithinTenant(TENANT_A_CLINICIAN.tenantId), 1);
+    assert.equal(await repository.countAppointmentsWithinTenant(TENANT_A_CLINICIAN), 1);
 
     await assert.rejects(
       () =>
@@ -198,7 +202,10 @@ describe("scheduling service", () => {
 
     assert.equal(outbox.rows.length, 1);
     assert.equal(outbox.rows[0]?.status, "pending");
-    assert.equal(outbox.rows[0]?.event_type, "scheduling.appointment.google-calendar.sync.requested");
+    assert.equal(
+      outbox.rows[0]?.event_type,
+      "scheduling.appointment.google-calendar.sync.requested"
+    );
     assert.equal(outbox.rows[0]?.payload.appointmentId, created.appointment.id);
     assert.equal(outbox.rows[0]?.payload.action, "create");
     assert.equal(outbox.rows[0]?.payload.tenantId, TENANT_A_CLINICIAN.tenantId);
@@ -207,12 +214,8 @@ describe("scheduling service", () => {
 
 function ensureTestEnv(): void {
   process.env.NODE_ENV = process.env.NODE_ENV ?? "test";
-  process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgresql://lia:lia@localhost:5432/lia_clinic";
-  process.env.OIDC_ISSUER = process.env.OIDC_ISSUER ?? "https://issuer.example.test";
-  process.env.OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID ?? "client-id";
-  process.env.OIDC_CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET ?? "client-secret";
-  process.env.OIDC_REDIRECT_URI = process.env.OIDC_REDIRECT_URI ?? "https://api.example.test/auth/callback";
-  process.env.OIDC_AUDIENCE = process.env.OIDC_AUDIENCE ?? "client-id";
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/lia_clinic";
 }
 
 async function prepareTestDatabaseUrl(baseDatabaseUrl: string): Promise<string> {
@@ -248,7 +251,9 @@ function quoteIdentifier(value: string): string {
 
 async function applyMigrations(databaseService: DatabaseService): Promise<void> {
   const migrationsDirectory = resolve(process.cwd(), "src/db/migrations");
-  const migrationFiles = (await readdir(migrationsDirectory)).filter((file) => file.endsWith(".sql")).sort();
+  const migrationFiles = (await readdir(migrationsDirectory))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
 
   for (const file of migrationFiles) {
     const sql = await readFile(join(migrationsDirectory, file), "utf8");

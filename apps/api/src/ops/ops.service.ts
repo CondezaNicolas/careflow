@@ -1,13 +1,18 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 
+import type { AuthPrincipal } from "@lia/shared-types";
+
+import { AuditRepository } from "../audit/audit.repository.js";
+import { AUDIT_ACTION, resolveMutationMeta } from "../audit/audit.types.js";
 import { getHttpMetricsSnapshot } from "../common/observability/api-metrics.js";
-import { parseEnv } from "../config/env.js";
+import { PlatformConfigService } from "../config/platform-config.service.js";
 import { DatabaseService } from "../db/database.service.js";
 
 export type ReadinessStatus = "ready" | "not_ready";
-export type CheckStatus = "ok" | "error";
+export type CheckStatus = "ok" | "warning" | "error";
 export type IntegrationReadinessStatus = "configured" | "missing_config";
 
 export interface DatabaseReadinessCheck {
@@ -19,7 +24,7 @@ export interface DatabaseReadinessCheck {
 }
 
 export interface IntegrationReadiness {
-  integration: "oidc" | "google_calendar" | "email" | "whatsapp";
+  integration: "google_calendar" | "email" | "whatsapp";
   requiredInCurrentEnv: boolean;
   status: IntegrationReadinessStatus;
   missingEnvKeys: string[];
@@ -31,8 +36,18 @@ export interface PreflightReadinessCheck {
   integrations: IntegrationReadiness[];
 }
 
+export interface ConfigReadinessCheck {
+  status: CheckStatus;
+  requestLoggingEnabled: boolean;
+  requestTimeoutMs: number;
+  shutdownGracePeriodMs: number;
+  authDevBypassEnabled: boolean;
+  devLoginEnabled: boolean;
+  allowedOriginsCount: number;
+  warnings: string[];
+}
+
 const PREFLIGHT_INTEGRATION_KEYS = {
-  oidc: ["OIDC_ISSUER", "OIDC_CLIENT_ID", "OIDC_CLIENT_SECRET", "OIDC_REDIRECT_URI"],
   google_calendar: [
     "GOOGLE_CALENDAR_CLIENT_ID",
     "GOOGLE_CALENDAR_CLIENT_SECRET",
@@ -45,7 +60,11 @@ const PREFLIGHT_INTEGRATION_KEYS = {
 
 @Injectable()
 export class OpsService {
-  constructor(@Inject(DatabaseService) private readonly databaseService: DatabaseService) {}
+  constructor(
+    @Inject(DatabaseService) private readonly databaseService: DatabaseService,
+    @Inject(PlatformConfigService) private readonly platformConfig: PlatformConfigService,
+    @Inject(AuditRepository) private readonly auditRepository: AuditRepository
+  ) {}
 
   getLiveness(): { status: "ok"; service: string; generatedAtIso: string } {
     return {
@@ -61,16 +80,19 @@ export class OpsService {
     checks: {
       database: DatabaseReadinessCheck;
       preflight: PreflightReadinessCheck;
+      config: ConfigReadinessCheck;
     };
   }> {
     const generatedAtIso = new Date().toISOString();
     const startedAt = Date.now();
-    const preflight = this.buildPreflightReadiness(process.env);
+    const preflight = this.buildPreflightReadiness();
+    const config = this.buildConfigReadiness();
 
     try {
-      const result = await this.databaseService.query<{ database_name: string; database_now: Date }>(
-        "SELECT current_database() AS database_name, NOW() AS database_now"
-      );
+      const result = await this.databaseService.query<{
+        database_name: string;
+        database_now: Date;
+      }>("SELECT current_database() AS database_name, NOW() AS database_now");
       const row = result.rows[0];
 
       const databaseCheck: DatabaseReadinessCheck = {
@@ -86,7 +108,8 @@ export class OpsService {
         generatedAtIso,
         checks: {
           database: databaseCheck,
-          preflight
+          preflight,
+          config
         }
       };
     } catch (error) {
@@ -101,13 +124,14 @@ export class OpsService {
             databaseNowIso: null,
             error: error instanceof Error ? error.message : "unknown_error"
           },
-          preflight
+          preflight,
+          config
         }
       };
     }
   }
 
-  async getOutboxHealth(): Promise<{
+  async getOutboxHealth(principal: AuthPrincipal): Promise<{
     generatedAtIso: string;
     totals: {
       pending: number;
@@ -156,7 +180,10 @@ export class OpsService {
       `
     );
 
-    const pendingByEventTypeRows = await this.databaseService.query<{ event_type: string; pending_count: string }>(
+    const pendingByEventTypeRows = await this.databaseService.query<{
+      event_type: string;
+      pending_count: string;
+    }>(
       `
         SELECT event_type, COUNT(*)::text AS pending_count
         FROM outbox_events
@@ -167,7 +194,7 @@ export class OpsService {
     );
 
     const totals = totalsRows.rows[0];
-    return {
+    const response = {
       generatedAtIso: new Date().toISOString(),
       totals: {
         pending: Number.parseInt(totals?.pending_count ?? "0", 10),
@@ -184,28 +211,50 @@ export class OpsService {
         pendingCount: Number.parseInt(row.pending_count, 10)
       }))
     };
+
+    await this.recordOpsAudit(
+      principal,
+      AUDIT_ACTION.OPS_OUTBOX_HEALTH_VIEWED,
+      "ops/outbox/health",
+      {
+        pendingEvents: response.totals.pending,
+        failedEvents: response.totals.failed,
+        deadLetters24h: response.totals.deadLetters24h
+      }
+    );
+
+    return response;
   }
 
-  getApiMetrics(): {
+  async getApiMetrics(principal: AuthPrincipal): Promise<{
     generatedAtIso: string;
     http: ReturnType<typeof getHttpMetricsSnapshot>;
-  } {
-    return {
+  }> {
+    const response = {
       generatedAtIso: new Date().toISOString(),
       http: getHttpMetricsSnapshot()
     };
+
+    await this.recordOpsAudit(principal, AUDIT_ACTION.OPS_METRICS_VIEWED, "ops/metrics", {
+      requestsTotal: response.http.requestsTotal,
+      maxDurationMs: response.http.maxDurationMs
+    });
+
+    return response;
   }
 
-  async getReleaseDiagnostics(): Promise<{
+  async getReleaseDiagnostics(principal: AuthPrincipal): Promise<{
     generatedAtIso: string;
     env: {
       nodeEnv: "development" | "test" | "production";
+      runtimeMode: "local" | "test" | "production";
       apiPort: number;
       requestLoggingEnabled: boolean;
-      oidcIssuerHost: string;
-      oidcRedirectUriHost: string;
-      sessionCookieName: string;
-      sessionTtlMinutes: number;
+      requestTimeoutMs: number;
+      shutdownGracePeriodMs: number;
+      allowedOriginsCount: number;
+      authDevBypassEnabled: boolean;
+      devLoginEnabled: boolean;
       databaseUrlProtocol: string;
     };
     migrations: {
@@ -221,26 +270,31 @@ export class OpsService {
       checks: {
         database: DatabaseReadinessCheck;
         preflight: PreflightReadinessCheck;
+        config: ConfigReadinessCheck;
       };
     };
     preflight: PreflightReadinessCheck;
   }> {
-    const env = parseEnv(process.env);
     const migrationDirectory = resolve(process.cwd(), "src/db/migrations");
-    const migrationFiles = (await readdir(migrationDirectory)).filter((file) => file.endsWith(".sql")).sort();
+    const migrationFiles = (await readdir(migrationDirectory))
+      .filter((file) => file.endsWith(".sql"))
+      .sort();
     const readiness = await this.getReadiness();
+    const migrationStatus: "ok" | "warning" = migrationFiles.length >= 12 ? "ok" : "warning";
 
-    return {
+    const response = {
       generatedAtIso: new Date().toISOString(),
       env: {
-        nodeEnv: env.NODE_ENV,
-        apiPort: env.API_PORT,
-        requestLoggingEnabled: env.ENABLE_REQUEST_LOGGING,
-        oidcIssuerHost: new URL(env.OIDC_ISSUER).host,
-        oidcRedirectUriHost: new URL(env.OIDC_REDIRECT_URI).host,
-        sessionCookieName: env.SESSION_COOKIE_NAME,
-        sessionTtlMinutes: env.SESSION_TTL_MINUTES,
-        databaseUrlProtocol: new URL(env.DATABASE_URL).protocol
+        nodeEnv: this.platformConfig.runtime.nodeEnv,
+        runtimeMode: this.platformConfig.runtime.mode,
+        apiPort: this.platformConfig.server.apiPort,
+        requestLoggingEnabled: this.platformConfig.server.requestLoggingEnabled,
+        requestTimeoutMs: this.platformConfig.server.requestTimeoutMs,
+        shutdownGracePeriodMs: this.platformConfig.server.shutdownGracePeriodMs,
+        allowedOriginsCount: this.platformConfig.server.allowedOrigins.length,
+        authDevBypassEnabled: this.platformConfig.auth.devBypassEnabled,
+        devLoginEnabled: this.platformConfig.auth.devLoginEnabled,
+        databaseUrlProtocol: new URL(this.platformConfig.database.url).protocol
       },
       migrations: {
         directory: migrationDirectory,
@@ -248,7 +302,7 @@ export class OpsService {
         firstFile: migrationFiles[0] ?? null,
         latestFile: migrationFiles.at(-1) ?? null,
         expectedMinimum: 12,
-        status: migrationFiles.length >= 12 ? "ok" : "warning"
+        status: migrationStatus
       },
       readiness: {
         status: readiness.status,
@@ -256,17 +310,62 @@ export class OpsService {
       },
       preflight: readiness.checks.preflight
     };
+
+    await this.recordOpsAudit(principal, AUDIT_ACTION.OPS_DIAGNOSTICS_VIEWED, "ops/diagnostics", {
+      readinessStatus: response.readiness.status,
+      migrationStatus: response.migrations.status,
+      preflightStatus: response.preflight.status
+    });
+
+    return response;
   }
 
-  private buildPreflightReadiness(source: NodeJS.ProcessEnv): PreflightReadinessCheck {
-    const nodeEnv = source.NODE_ENV ?? "development";
-    const productionLikeEnv = nodeEnv === "production";
+  private buildConfigReadiness(): ConfigReadinessCheck {
+    const warnings: string[] = [];
+
+    if (!this.platformConfig.server.requestLoggingEnabled) {
+      warnings.push("Request logging disabled reduces request-level observability");
+    }
+
+    if (this.platformConfig.auth.devBypassEnabled) {
+      warnings.push("AUTH_DEV_BYPASS is enabled outside production");
+    }
+
+    if (this.platformConfig.auth.devLoginEnabled) {
+      warnings.push("DEV_LOGIN_ENABLED is enabled outside production");
+    }
+
+    return {
+      status: warnings.length > 0 ? "warning" : "ok",
+      requestLoggingEnabled: this.platformConfig.server.requestLoggingEnabled,
+      requestTimeoutMs: this.platformConfig.server.requestTimeoutMs,
+      shutdownGracePeriodMs: this.platformConfig.server.shutdownGracePeriodMs,
+      authDevBypassEnabled: this.platformConfig.auth.devBypassEnabled,
+      devLoginEnabled: this.platformConfig.auth.devLoginEnabled,
+      allowedOriginsCount: this.platformConfig.server.allowedOrigins.length,
+      warnings
+    };
+  }
+
+  private buildPreflightReadiness(): PreflightReadinessCheck {
+    const requiredInCurrentEnv = this.platformConfig.ops.productionPreflightRequired;
 
     const integrations: IntegrationReadiness[] = [
-      this.buildIntegrationReadiness("oidc", PREFLIGHT_INTEGRATION_KEYS.oidc, true, source),
-      this.buildIntegrationReadiness("google_calendar", PREFLIGHT_INTEGRATION_KEYS.google_calendar, productionLikeEnv, source),
-      this.buildIntegrationReadiness("email", PREFLIGHT_INTEGRATION_KEYS.email, productionLikeEnv, source),
-      this.buildIntegrationReadiness("whatsapp", PREFLIGHT_INTEGRATION_KEYS.whatsapp, productionLikeEnv, source)
+      this.buildIntegrationReadiness(
+        "google_calendar",
+        PREFLIGHT_INTEGRATION_KEYS.google_calendar,
+        requiredInCurrentEnv
+      ),
+      this.buildIntegrationReadiness(
+        "email",
+        PREFLIGHT_INTEGRATION_KEYS.email,
+        requiredInCurrentEnv
+      ),
+      this.buildIntegrationReadiness(
+        "whatsapp",
+        PREFLIGHT_INTEGRATION_KEYS.whatsapp,
+        requiredInCurrentEnv
+      )
     ];
 
     const hasBlockingMissingConfig = integrations.some(
@@ -275,7 +374,7 @@ export class OpsService {
 
     return {
       status: hasBlockingMissingConfig ? "not_ready" : "ready",
-      requiredInCurrentEnv: productionLikeEnv,
+      requiredInCurrentEnv,
       integrations
     };
   }
@@ -283,15 +382,41 @@ export class OpsService {
   private buildIntegrationReadiness(
     integration: IntegrationReadiness["integration"],
     keys: readonly string[],
-    requiredInCurrentEnv: boolean,
-    source: NodeJS.ProcessEnv
+    requiredInCurrentEnv: boolean
   ): IntegrationReadiness {
-    const missingEnvKeys = keys.filter((key) => !source[key] || source[key]?.trim().length === 0);
+    const missingEnvKeys = keys.filter((key) => {
+      const value = this.platformConfig.raw[key as keyof typeof this.platformConfig.raw];
+      return typeof value !== "string" || value.trim().length === 0;
+    });
+
     return {
       integration,
       requiredInCurrentEnv,
       status: missingEnvKeys.length === 0 ? "configured" : "missing_config",
       missingEnvKeys
     };
+  }
+
+  private async recordOpsAudit(
+    principal: AuthPrincipal,
+    action: (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION],
+    entityId: string,
+    metadata: Record<string, unknown>
+  ): Promise<void> {
+    const mutationMeta = resolveMutationMeta(undefined);
+
+    await this.auditRepository.saveDomainEvent({
+      id: randomUUID(),
+      tenantId: principal.tenantId,
+      actorId: principal.id,
+      actorRole: principal.role,
+      source: mutationMeta.source,
+      action,
+      entityType: "ops_endpoint",
+      entityId,
+      requestId: mutationMeta.requestId,
+      traceId: mutationMeta.traceId,
+      metadata
+    });
   }
 }
