@@ -9,7 +9,6 @@ async function main() {
   const databaseUrl = process.env.DATABASE_URL || "postgresql://lia:lia@localhost:5433/lia_clinic";
 
   console.log("🌱 Running database seed...");
-  console.log("📦 Database:", databaseUrl);
 
   const pool = new Pool({ connectionString: databaseUrl });
 
@@ -33,8 +32,6 @@ async function main() {
        ON CONFLICT (id) DO UPDATE SET password_hash = $5`,
       [adminId, devTenantId, adminRoleId, "admin@lia.local", adminPassword]
     );
-    console.log("✅ Admin user created: admin@lia.local / Admin123!");
-
     // Create clinician user
     const clinicianPassword = await hash("Clinician123!", 12);
     const clinicianId = "30000000-0000-0000-0000-000000000002";
@@ -51,8 +48,6 @@ async function main() {
         clinicianPassword
       ]
     );
-    console.log("✅ Clinician user created: clinician@lia.local / Clinician123!");
-
     // Create receptionist user
     const receptionistPassword = await hash("Receptionist123!", 12);
     const receptionistId = "30000000-0000-0000-0000-000000000003";
@@ -69,8 +64,6 @@ async function main() {
         receptionistPassword
       ]
     );
-    console.log("✅ Receptionist user created: receptionist@lia.local / Receptionist123!");
-
     // Create patient user
     const patientPassword = await hash("Patient123!", 12);
     const patientId = "30000000-0000-0000-0000-000000000004";
@@ -87,14 +80,7 @@ async function main() {
         patientPassword
       ]
     );
-    console.log("✅ Patient user created: patient@lia.local / Patient123!");
-
-    console.log("\n🎉 Seed completed successfully!");
-    console.log("\n📋 Test users:");
-    console.log("   admin@lia.local / Admin123! (role: admin)");
-    console.log("   clinician@lia.local / Clinician123! (role: clinician)");
-    console.log("   receptionist@lia.local / Receptionist123! (role: receptionist)");
-    console.log("   patient@lia.local / Patient123! (role: patient)");
+    console.log("✅ Demo users seeded successfully");
   } catch (error) {
     console.error("❌ Seed failed:", error);
     process.exit(1);

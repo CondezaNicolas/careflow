@@ -5,6 +5,7 @@ import { after, before, beforeEach, describe, it } from "node:test";
 
 import { Client, Pool } from "pg";
 
+import { WORKER_PROVIDER_MODE } from "./env.js";
 import {
   GoogleCalendarOutboxWorker,
   NotificationOutboxWorker,
@@ -13,6 +14,12 @@ import {
   getWorkerMetricsSnapshot,
   resetWorkerMetricsSnapshot
 } from "./main.js";
+import {
+  WORKER_WAIT_OUTCOME,
+  createWorkerRuntime,
+  createWorkerShutdownController,
+  runWorkerLoop
+} from "./runtime.js";
 
 const TEST_TENANT = "00000000-0000-4000-8000-000000000001";
 const TEST_APPOINTMENT = "11111111-1111-4111-8111-111111111111";
@@ -416,6 +423,118 @@ describe("google calendar outbox worker", () => {
   });
 });
 
+describe("worker runtime integration", () => {
+  beforeEach(() => {
+    resetWorkerMetricsSnapshot();
+  });
+
+  it("keeps configured provider resolution visible during runtime wiring", async () => {
+    const runtime = createWorkerRuntime({
+      envSource: createWorkerRuntimeEnv(),
+      pool: createMockPool()
+    });
+
+    runtime.googleCalendarWorker.processPending = async () => ({
+      processed: 1,
+      synced: 1,
+      failed: 0,
+      retried: 0
+    });
+    runtime.notificationsWorker.processPending = async () => ({
+      processed: 1,
+      synced: 1,
+      failed: 0,
+      retried: 0
+    });
+
+    const result = await runtime.runSingleCycle("resolved-provider-run");
+
+    assert.deepEqual(runtime.providerResolution, {
+      googleCalendar: {
+        mode: WORKER_PROVIDER_MODE.PROVIDER,
+        provider: "google_calendar_configured",
+        providerPath: "google_calendar.provider.configured"
+      },
+      notifications: {
+        email: {
+          mode: WORKER_PROVIDER_MODE.PROVIDER,
+          provider: "configured",
+          providerPath: "notifications.email.provider.configured"
+        },
+        whatsapp: {
+          mode: WORKER_PROVIDER_MODE.PROVIDER,
+          provider: "configured",
+          providerPath: "notifications.whatsapp.provider.configured"
+        }
+      }
+    });
+    assert.deepEqual(result, {
+      runId: "resolved-provider-run",
+      googleCalendar: {
+        processed: 1,
+        synced: 1,
+        failed: 0,
+        retried: 0
+      },
+      notifications: {
+        processed: 1,
+        synced: 1,
+        failed: 0,
+        retried: 0
+      },
+      idle: false
+    });
+
+    await runtime.close();
+  });
+
+  it("logs attention when a resolved runtime cycle reports failures", async () => {
+    const runtime = createWorkerRuntime({
+      envSource: createWorkerRuntimeEnv(),
+      pool: createMockPool()
+    });
+    const shutdownController = createWorkerShutdownController({
+      shutdownGracePeriodMs: 50
+    });
+
+    runtime.googleCalendarWorker.processPending = async () => ({
+      processed: 1,
+      synced: 0,
+      failed: 1,
+      retried: 0
+    });
+    runtime.notificationsWorker.processPending = async () => ({
+      processed: 1,
+      synced: 1,
+      failed: 0,
+      retried: 0
+    });
+
+    const logs = await captureStructuredLogs(async () => {
+      await runWorkerLoop(runtime, {
+        shutdownController,
+        waitForNextCycle: async () => {
+          shutdownController.requestShutdown("after-attention-cycle");
+          return WORKER_WAIT_OUTCOME.SHUTDOWN;
+        }
+      });
+    });
+
+    const startupLog = findStructuredEvent(logs, "worker.runtime.started")[0];
+    assert.ok(startupLog);
+    assert.deepEqual(startupLog?.providerResolution, runtime.providerResolution);
+
+    const attentionLog = findStructuredEvent(logs, "worker.cycle.requires_attention")[0];
+    assert.ok(attentionLog);
+    assert.equal(attentionLog?.failedCalendarEvents, 1);
+    assert.equal(attentionLog?.failedNotificationEvents, 0);
+
+    const stoppedLog = findStructuredEvent(logs, "worker.runtime.stopped")[0];
+    assert.ok(stoppedLog);
+    assert.equal(stoppedLog?.reason, "after-attention-cycle");
+  });
+});
+
 function ensureTestEnv(): void {
   process.env.NODE_ENV = "test";
   process.env.DATABASE_URL =
@@ -463,4 +582,63 @@ async function applyApiMigrations(pool: Pool): Promise<void> {
     const sql = await readFile(join(migrationsDirectory, file), "utf8");
     await pool.query(sql);
   }
+}
+
+function createWorkerRuntimeEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  return {
+    NODE_ENV: "production",
+    DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/lia_clinic",
+    REDIS_URL: "redis://localhost:6379",
+    WORKER_POLL_INTERVAL_MS: "25",
+    WORKER_SHUTDOWN_GRACE_PERIOD_MS: "50",
+    GOOGLE_CALENDAR_PROVIDER_MODE: WORKER_PROVIDER_MODE.PROVIDER,
+    EMAIL_PROVIDER_MODE: WORKER_PROVIDER_MODE.PROVIDER,
+    WHATSAPP_PROVIDER_MODE: WORKER_PROVIDER_MODE.PROVIDER,
+    GOOGLE_CALENDAR_CLIENT_ID: "client-id",
+    GOOGLE_CALENDAR_CLIENT_SECRET: "client-secret",
+    GOOGLE_CALENDAR_REFRESH_TOKEN: "refresh-token",
+    GOOGLE_CALENDAR_CALENDAR_ID: "calendar-id",
+    EMAIL_PROVIDER_API_KEY: "email-api-key",
+    EMAIL_PROVIDER_FROM: "ops@example.com",
+    WHATSAPP_ACCESS_TOKEN: "wa-token",
+    WHATSAPP_PHONE_NUMBER_ID: "phone-number-id",
+    WHATSAPP_BUSINESS_ACCOUNT_ID: "business-account-id",
+    ...overrides
+  };
+}
+
+function createMockPool(): Pool {
+  return {
+    end: async () => undefined
+  } as unknown as Pool;
+}
+
+async function captureStructuredLogs<T>(
+  callback: () => Promise<T>
+): Promise<Array<Record<string, unknown>>> {
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  const lines: string[] = [];
+
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    lines.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+    return true;
+  }) as typeof process.stdout.write;
+
+  try {
+    await callback();
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+
+  return lines
+    .flatMap((line) => line.split("\n"))
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
+function findStructuredEvent(
+  logs: Array<Record<string, unknown>>,
+  event: string
+): Array<Record<string, unknown>> {
+  return logs.filter((log) => log.event === event);
 }

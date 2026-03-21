@@ -36,14 +36,14 @@ careflow/
 
 ## Tech Stack
 
-| Layer          | Technology                     |
-| -------------- | ------------------------------ |
-| API            | NestJS, TypeScript, PostgreSQL |
-| Cache/Queue    | Redis                          |
-| Object Storage | MinIO (S3-compatible)          |
-| Auth           | OIDC (Keycloak, Auth0, Okta)   |
-| Worker         | Node.js, BullMQ                |
-| Frontend       | Next.js 15 (coming soon)       |
+| Layer          | Technology                      |
+| -------------- | ------------------------------- |
+| API            | NestJS, TypeScript, PostgreSQL  |
+| Cache/Queue    | Redis                           |
+| Object Storage | MinIO (S3-compatible)           |
+| Auth           | OIDC (Keycloak, Auth0, Okta)    |
+| Worker         | Node.js, PostgreSQL outbox loop |
+| Frontend       | Next.js 15 (coming soon)        |
 
 ## Local Development
 
@@ -98,6 +98,15 @@ npm run contract:lint
 ```
 
 `npm run contract:sync` refreshes the generated backend route snapshot at `apps/api/openapi/runtime-routes.json` and normalizes the published JSON artifacts before `npm run contract:lint` checks runtime/OpenAPI/Postman drift.
+
+### Worker Operations
+
+- Local watch mode stays on `npm run dev -w @lia/worker` for development only.
+- Long-lived service mode is `npm run start -w @lia/worker`; the worker Docker image uses the same command so deploys match the real runtime.
+- Worker bring-up expects `DATABASE_URL`, `WORKER_POLL_INTERVAL_MS`, `WORKER_SHUTDOWN_GRACE_PERIOD_MS`, and provider mode flags. If any provider mode is `provider`, the matching credentials in `.env.example` must also be present.
+- In `production`, `GOOGLE_CALENDAR_PROVIDER_MODE`, `EMAIL_PROVIDER_MODE`, and `WHATSAPP_PROVIDER_MODE` must stay on `provider`; `noop` is only for local/test runs.
+- On `SIGINT` or `SIGTERM`, the worker stops accepting new cycles, lets the in-flight cycle finish, closes its PostgreSQL pool, and logs `worker.runtime.stopped`.
+- Operator checks after bring-up: confirm `worker.runtime.started` and `worker.cycle.completed` logs, watch for `worker.cycle.requires_attention`, and verify `/ops/outbox/health` plus `/ops/diagnostics` stay healthy.
 
 ### Environment Variables
 

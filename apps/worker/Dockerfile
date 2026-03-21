@@ -18,4 +18,4 @@ COPY packages/shared-types ./packages/shared-types
 # Build shared types
 RUN npm run build -w packages/shared-types
 
-CMD ["npm", "run", "dev", "-w", "@lia/worker"]
+CMD ["npm", "run", "start", "-w", "@lia/worker"]

@@ -8,6 +8,11 @@ This runbook is the final backend-only go-live gate for `lia-clinic-core`.
 - Required backend keys:
   - `DATABASE_URL`
   - `REDIS_URL`
+  - `WORKER_POLL_INTERVAL_MS`
+  - `WORKER_SHUTDOWN_GRACE_PERIOD_MS`
+  - `GOOGLE_CALENDAR_PROVIDER_MODE`
+  - `EMAIL_PROVIDER_MODE`
+  - `WHATSAPP_PROVIDER_MODE`
   - `JWT_SECRET`
   - `JWT_REFRESH_SECRET`
   - `SESSION_COOKIE_NAME`
@@ -28,6 +33,7 @@ This runbook is the final backend-only go-live gate for `lia-clinic-core`.
 - For non-test environments, use:
   - `DATABASE_URL` with `postgresql://`
   - strong random values for `JWT_SECRET`, `JWT_REFRESH_SECRET`, and `SESSION_SECRET`
+  - `GOOGLE_CALENDAR_PROVIDER_MODE=provider`, `EMAIL_PROVIDER_MODE=provider`, and `WHATSAPP_PROVIDER_MODE=provider` for deployed workers
   - `AUTH_DEV_BYPASS=false` and `DEV_LOGIN_ENABLED=false`
 
 Provider integration note:
@@ -78,12 +84,24 @@ Admin endpoints (require admin session):
 2. Provision Google Calendar service account/user grant and confirm access to the configured calendar ID.
 3. Provision Email provider sender identity and API key with send permission.
 4. Provision WhatsApp business account, phone number id, and access token.
-5. Deploy API and worker.
-6. Verify `GET /health/live` = `200` and `GET /health/ready` = `200`.
-7. Verify `GET /ops/diagnostics` as admin returns:
+5. Deploy API and worker; the worker image now starts in long-lived service mode with `npm run start -w @lia/worker` rather than watch mode.
+6. Verify worker env wiring before traffic:
+   - `WORKER_POLL_INTERVAL_MS` matches the expected cadence for your environment.
+   - `WORKER_SHUTDOWN_GRACE_PERIOD_MS` is long enough for one in-flight cycle to finish cleanly.
+   - provider mode flags are all `provider` and all matching credentials are present.
+7. Verify `GET /health/live` = `200` and `GET /health/ready` = `200`.
+8. Verify `GET /ops/diagnostics` as admin returns:
    - `readiness.status = "ready"`
    - `preflight.status = "ready"`
    - provider entries are `configured` with empty `missingEnvKeys`.
+9. Verify worker logs show:
+   - one `worker.runtime.started` entry after boot,
+   - repeating `worker.cycle.completed` entries,
+   - no unexpected `worker.cycle.requires_attention` entries.
+
+Shutdown semantics note:
+
+- `SIGINT` and `SIGTERM` stop new polling cycles, allow the current cycle to reach a safe finish, close the PostgreSQL pool, and emit `worker.runtime.stopped`.
 
 ## 6) Smoke checks (post-deploy)
 
@@ -95,6 +113,7 @@ Admin endpoints (require admin session):
   - Trigger one appointment lifecycle notification and one exam status notification; confirm delivery records are created.
 - Ops visibility:
   - Check `/ops/outbox/health` and verify no growing retry/dead-letter backlog.
+  - Check worker logs for repeated `worker.cycle.completed` entries and absence of `worker.cycle.requires_attention` during the smoke window.
 
 ## 7) Rollback plan
 
