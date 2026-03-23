@@ -14,6 +14,52 @@
   --accent-contrast: #dff9ff;
   --hero-surface: rgba(248, 250, 251, 0.78);
   --shadow: 0 24px 60px rgba(0, 50, 58, 0.1);
+  /* Dashboard-specific colors from Stitch design */
+  --on-secondary-container: #56676a;
+  --tertiary-container: #7c4b1b;
+  --on-surface: #191c1d;
+  --outline: #6f797b;
+  --error: #ba1a1a;
+  --surface-dim: #d8dadb;
+  --on-primary-fixed-variant: #004e59;
+  --on-primary-fixed: #001f25;
+  --secondary: #506164;
+  --surface-tint: #136875;
+  --surface-variant: #e1e3e4;
+  --on-error-container: #93000a;
+  --on-secondary: #ffffff;
+  --on-background: #191c1d;
+  --inverse-on-surface: #eff1f2;
+  --surface-container-highest: #e1e3e4;
+  --surface-container-lowest: #ffffff;
+  --inverse-primary: #8ad2e0;
+  --outline-variant: #bec8cb;
+  --inverse-surface: #2e3132;
+  --primary-container: #00606d;
+  --surface-bright: #f8fafb;
+  --error-container: #ffdad6;
+  --tertiary: #603404;
+  --on-primary: #ffffff;
+  --surface-container: #eceeef;
+  --on-tertiary-fixed: #2e1500;
+  --tertiary-fixed: #ffdcc1;
+  --on-tertiary-fixed-variant: #693c0c;
+  --surface-container-low: #f2f4f5;
+  --on-secondary-fixed: #0d1e21;
+  --on-error: #ffffff;
+  --secondary-container: #d3e6e9;
+  --on-surface-variant: #3f484b;
+  --tertiary-fixed-dim: #fcb87f;
+  --on-tertiary: #ffffff;
+  --on-tertiary-container: #ffbf8a;
+  --primary-fixed-dim: #8ad2e0;
+  --on-primary-container: #91d8e7;
+  --secondary-fixed: #d3e6e9;
+  --primary: #004751;
+  --surface-container-high: #e6e8e9;
+  --on-secondary-fixed-variant: #394a4c;
+  --primary-fixed: #a6eefd;
+  --secondary-fixed-dim: #b8cacd;
 }
 
 * {
@@ -956,7 +1002,7 @@ main {
   width: 100%;
   padding: 0.8rem 1rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: 999px 0 0 999px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -1250,6 +1296,7 @@ main {
 }
 
 .admin-header h1,
+.admin-dashboard__hero h1,
 .admin-dashboard__hero h2 {
   margin: 0;
   font-family: var(--font-heading), sans-serif;
@@ -1563,6 +1610,7 @@ main {
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(242, 244, 245, 0.92));
 }
 
+.admin-dashboard__hero h1,
 .admin-dashboard__hero h2 {
   max-width: 16ch;
   font-size: clamp(2rem, 3vw, 3.5rem);
@@ -2100,5 +2148,49 @@ main {
 
   .dev-login-card__copy span {
     font-size: 0.84rem;
+  }
+}
+
+/* ─── Admin Dashboard Styles ────────────────────────────────────────────────── */
+
+.admin-dashboard {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.admin-dashboard__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  gap: 1.5rem;
+  padding: clamp(1.5rem, 3vw, 2.2rem);
+  border-radius: 1.9rem;
+  box-shadow: var(--shadow);
+  background:
+    radial-gradient(circle at top right, rgba(160, 239, 255, 0.42), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(242, 244, 245, 0.92));
+}
+
+.admin-dashboard__hero > div > p:last-child {
+  margin: 0.8rem 0 0;
+  max-width: 42rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.admin-dashboard__hero h2 {
+  max-width: 16ch;
+  font-size: clamp(2rem, 3vw, 3.5rem);
+  line-height: 0.98;
+}
+
+@media (max-width: 1024px) {
+  .admin-dashboard__hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-dashboard__hero {
+    border-radius: 1.45rem;
   }
 }
