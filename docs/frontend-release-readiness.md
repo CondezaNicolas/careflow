@@ -1,6 +1,6 @@
 # Frontend Release Readiness Runbook
 
-This runbook is the final frontend-only go-live gate for `lia-clinic-core` web application.
+This runbook is the final frontend-only go-live gate for the `@lia/web` authentication and role-routing surface.
 
 ## 1) Environment Configuration
 
@@ -11,48 +11,56 @@ Copy `.env.example` into `.env.local` and provide production-safe values:
 - `NEXT_PUBLIC_API_URL` - Backend API URL
 - `NEXT_PUBLIC_APP_URL` - Frontend URL (e.g., https://lia.example.com)
 
-### Optional (for advanced features)
+### Local-only Verification Toggle
 
-- `NEXT_PUBLIC_ANALYTICS_ID` - Analytics tracking ID
-- `NEXT_PUBLIC_FEATURE_FLAGS` - Comma-separated feature flags
+- `NEXT_PUBLIC_DEV_LOGIN_ENABLED=true` - Enables the guarded dev-login shortcut cards for local smoke checks only.
 
-## 2) Build Quality Gates
+## 2) Verification Matrix
 
-From `apps/web` directory, run:
+From the repo root, run:
 
 ```bash
 # Type checking
-npm run typecheck
+npm run typecheck -w @lia/web
 
 # Linting
-npm run lint
+npm run lint -w @lia/web
 
 # Unit and integration tests
-npm run test
+npm run test -w @lia/web
 
 # Contract tests
-npm run test:contracts
+npm run test:contracts -w @lia/web
 
-# E2E tests (requires dev server running)
-npm run test:e2e
+# Playwright smoke suite (spawns its own Next.js dev server)
+npm run test:e2e -w @lia/web
 ```
 
-**Expected**: All commands pass with exit code 0.
+**Expected**: All commands pass with exit code 0 without running a production build.
 
-## 3) Production Build
+### Playwright Harness Notes
 
-```bash
-npm run build
-```
+- Config entrypoint: `apps/web/playwright.config.ts`
+- Shared fixtures and mocked auth transport: `apps/web/tests/e2e/fixtures.ts`
+- Auth suite and page object: `apps/web/tests/e2e/auth/auth.spec.ts`, `apps/web/tests/e2e/auth/auth-page.ts`
+- The harness intercepts `/auth/login`, `/auth/refresh`, `/auth/logout`, and `/auth/dev-login`, so local E2E checks stay deterministic and do not depend on a live backend.
 
-### Build Output Verification
+## 3) Manual Role Smoke Checklist
 
-The build should produce:
-- Static pages optimized
-- API routes compiled
-- Client bundles chunked
-- Images optimized (if using next/image)
-- Fonts optimized (if using next/font)
+Run these checks in a local browser after the verification matrix passes:
+
+| Role         | Entry                          | Expected landing route | Smoke assertions                                                                         |
+| ------------ | ------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------- |
+| Admin        | Dev shortcut or seeded session | `/admin`               | Header shows `Admin command center`, logout returns to `/login?reason=signed-out`        |
+| Clinician    | Dev shortcut or seeded session | `/clinician`           | Header shows `Clinician command center`, logout returns to `/login?reason=signed-out`    |
+| Receptionist | Dev shortcut or seeded session | `/receptionist`        | Header shows `Receptionist command center`, logout returns to `/login?reason=signed-out` |
+| Patient      | Dev shortcut or seeded session | `/patient`             | Header shows `Patient command center`, logout returns to `/login?reason=signed-out`      |
+
+Manual spot checks to record during handoff:
+
+1. Invalid credentials stay on `/login` and render visible feedback.
+2. Opening `/admin` while signed out redirects to `/login?reason=login-required`.
+3. Refreshing the browser with a valid local session reopens the matching role workspace.
 
 ## 4) Health Endpoints
 
@@ -68,23 +76,25 @@ The frontend relies on these backend health checks (see backend runbook):
 After deployment, verify these 3-5 critical flows:
 
 1. **Authentication**
-   - User can sign in via OIDC
+   - User can sign in with clinic credentials
    - Session persists across page refreshes
-   - User can sign out
+   - User can sign out and land on `/login?reason=signed-out`
+   - Dev-login shortcuts remain disabled outside local verification
 
 2. **Navigation**
-   - All main navigation links work
-   - Protected routes redirect appropriately
-   - No 404 errors on main pages
+   - Root route redirects anonymous users to `/login`
+   - Protected routes redirect anonymous users to `/login?reason=login-required`
+   - Each role lands only in its own protected route shell
 
 3. **Data Display**
-   - Patient list loads
-   - Scheduling view shows appointments
-   - Clinical notes accessible
+   - Role landing headline matches the authenticated role
+   - Session banner shows the authenticated email and tenant
+   - Logout control remains responsive while the request is in flight
 
 ### Browser Compatibility
 
 Verify in:
+
 - Chrome (latest)
 - Firefox (latest)
 - Safari (latest)
@@ -127,17 +137,17 @@ The project should have workflows for:
 ### Pre-Deployment Checklist
 
 - [ ] All tests pass locally
-- [ ] No console errors in production build
 - [ ] Environment variables configured
-- [ ] Build completes without warnings
 - [ ] TypeScript strict mode passes
+- [ ] Playwright auth smoke suite passes in Chromium
+- [ ] Dev-login shortcuts disabled in non-local environments
 - [ ] No accessibility violations
 
 ### Post-Deployment Checklist
 
-- [ ] Home page loads
+- [ ] Home page redirects into login or the active role workspace
 - [ ] Login flow works
-- [ ] Main navigation works
+- [ ] Admin, clinician, receptionist, and patient shells route correctly
 - [ ] No critical errors in console
 - [ ] Performance acceptable (Core Web Vitals)
 
@@ -146,6 +156,7 @@ The project should have workflows for:
 ### Frontend Error Tracking
 
 Monitor for:
+
 - JavaScript runtime errors
 - API request failures
 - Failed component renders
@@ -153,6 +164,7 @@ Monitor for:
 ### Performance Metrics
 
 Track:
+
 - First Contentful Paint (FCP)
 - Largest Contentful Paint (LCP)
 - Time to Interactive (TTI)
@@ -163,6 +175,7 @@ Track:
 ### Update Strategy
 
 Before each release:
+
 1. Check for security advisories: `npm audit`
 2. Update minor/patch versions
 3. Review breaking changes for major versions

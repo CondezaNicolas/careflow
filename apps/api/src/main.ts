@@ -53,7 +53,7 @@ async function bootstrap() {
       origin: platformConfig.server.allowedOrigins,
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Cookie", "Set-Cookie", "x-correlation-id"]
+      allowedHeaders: ["Authorization", "Content-Type", "Cookie", "Set-Cookie", "x-correlation-id"]
     });
 
     // Security headers (Helmet)
