@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  Bell,
-  ChevronDown,
-  Menu,
-  PanelLeftClose,
-  Plus,
-  Search,
-  ShieldCheck,
-  Workflow
-} from "lucide-react";
+import { Bell, ChevronDown, Plus, Search, ShieldCheck, Workflow } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Breadcrumb } from "./breadcrumb";
@@ -21,9 +12,7 @@ interface AdminHeaderProps {
   displayName: string;
   email: string;
   isLoggingOut: boolean;
-  isMobileSidebarOpen: boolean;
   onLogout: () => void;
-  onToggleMobileSidebar: () => void;
   roleLabel: string;
   tenantId: string;
 }
@@ -34,9 +23,7 @@ export function AdminHeader({
   displayName,
   email,
   isLoggingOut,
-  isMobileSidebarOpen,
   onLogout,
-  onToggleMobileSidebar,
   roleLabel,
   tenantId
 }: AdminHeaderProps) {
@@ -103,19 +90,6 @@ export function AdminHeader({
 
       <div className="admin-header__primary">
         <div className="admin-header__primary-main">
-          <button
-            aria-label={isMobileSidebarOpen ? "Close navigation" : "Open navigation"}
-            className="admin-header__menu-toggle"
-            onClick={onToggleMobileSidebar}
-            type="button"
-          >
-            {isMobileSidebarOpen ? (
-              <PanelLeftClose aria-hidden="true" size={20} />
-            ) : (
-              <Menu aria-hidden="true" size={20} />
-            )}
-          </button>
-
           <div className="admin-header__title-block">
             <h1>Dashboard</h1>
             <label className="admin-header__search" htmlFor="admin-header-search">

@@ -902,7 +902,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
-  width: 16.5rem;
+  width: 16rem;
   min-height: 100vh;
   min-height: 100dvh;
   padding: 1.5rem 1rem 1.15rem;
@@ -1096,7 +1096,8 @@ main {
 .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__logout,
 .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__profile {
   justify-content: center;
-  padding-inline: 0.65rem;
+  padding-inline: 1.2rem;
+  gap: 0;
 }
 
 .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__profile {
@@ -1801,11 +1802,6 @@ main {
     min-height: 100dvh;
   }
 
-  .admin-workspace[data-mobile-nav="open"] .admin-workspace__overlay {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
   .admin-workspace__sidebar-frame {
     position: fixed;
     inset: 0 auto 0 0;
@@ -1813,41 +1809,39 @@ main {
     pointer-events: none;
   }
 
-  .admin-sidebar,
-  .admin-sidebar[data-sidebar-state="collapsed"] {
-    width: min(19rem, calc(100vw - 3rem));
+  .admin-sidebar {
+    width: 16rem;
     min-height: 100dvh;
-    transform: translateX(-100%);
-    transition: transform 180ms ease;
     pointer-events: auto;
+    transition: width 180ms ease;
   }
 
-  .admin-workspace[data-mobile-nav="open"] .admin-sidebar {
-    transform: translateX(0);
+  .admin-sidebar[data-sidebar-state="collapsed"] {
+    width: 4rem;
   }
 
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__brand,
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__item,
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__logout,
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__profile {
-    justify-content: flex-start;
-    padding-inline: 1rem;
+    justify-content: center;
+    padding-inline: 0;
   }
 
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__profile {
-    gap: 0.85rem;
+    gap: 0;
   }
 
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__brand-copy,
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__item-label,
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__profile-copy {
-    width: auto;
-    opacity: 1;
-    pointer-events: auto;
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .admin-sidebar[data-sidebar-state="collapsed"] .admin-sidebar__profile-icon {
-    display: inline-flex;
+    display: none;
   }
 
   .admin-workspace__main {
@@ -2192,5 +2186,13 @@ main {
 @media (max-width: 640px) {
   .admin-dashboard__hero {
     border-radius: 1.45rem;
+  }
+}
+
+/* Hide headers on screens below 1024px */
+@media (max-width: 1024px) {
+  .protected-header,
+  .admin-header {
+    display: none;
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { useAuthActions, useAuthSession } from "@/features/auth/hooks/use-auth";
@@ -25,17 +25,39 @@ function getDisplayName(email: string): string {
 }
 
 export function AdminShell({ children }: AdminShellProps) {
-  const pathname = usePathname();
   const router = useRouter();
   const session = useAuthSession();
   const { logout } = useAuthActions();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // Initialize sidebar state: collapsed on mobile, preserve state on desktop
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      // On mobile, always start collapsed
+      return true;
+    }
+
+    // On desktop, check localStorage for saved preference
+    const savedState = localStorage.getItem("admin-sidebar-collapsed");
+    return savedState === "true";
+  });
+
+  // Persist sidebar state to localStorage on desktop only
   useEffect(() => {
-    setIsMobileSidebarOpen(false);
-  }, [pathname]);
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const isDesktop = window.innerWidth >= 768;
+    if (isDesktop) {
+      localStorage.setItem("admin-sidebar-collapsed", String(isSidebarCollapsed));
+    }
+  }, [isSidebarCollapsed]);
 
   if (!session) {
     return <>{children}</>;
@@ -51,25 +73,22 @@ export function AdminShell({ children }: AdminShellProps) {
       router.replace(buildLoginRoute(LOGIN_REDIRECT_REASON.SIGNED_OUT));
     } finally {
       setIsLoggingOut(false);
-      setIsMobileSidebarOpen(false);
     }
   }
 
-  return (
-    <div className="admin-workspace" data-mobile-nav={isMobileSidebarOpen ? "open" : "closed"}>
-      <div
-        aria-hidden="true"
-        className="admin-workspace__overlay"
-        onClick={() => setIsMobileSidebarOpen(false)}
-      />
+  function handleToggleSidebar() {
+    setIsSidebarCollapsed((currentState) => !currentState);
+  }
 
+  return (
+    <div className="admin-workspace">
       <div className="admin-workspace__sidebar-frame">
         <AdminSidebar
           displayName={displayName}
           isCollapsed={isSidebarCollapsed}
           isLoggingOut={isLoggingOut}
           onLogout={handleLogout}
-          onToggleCollapse={() => setIsSidebarCollapsed((currentState) => !currentState)}
+          onToggleCollapse={handleToggleSidebar}
           roleLabel={getRoleLabel(session.principal.role)}
           tenantId={session.principal.tenantId}
         />
@@ -80,9 +99,7 @@ export function AdminShell({ children }: AdminShellProps) {
           displayName={displayName}
           email={session.principal.email}
           isLoggingOut={isLoggingOut}
-          isMobileSidebarOpen={isMobileSidebarOpen}
           onLogout={handleLogout}
-          onToggleMobileSidebar={() => setIsMobileSidebarOpen((currentState) => !currentState)}
           roleLabel={getRoleLabel(session.principal.role)}
           tenantId={session.principal.tenantId}
         />
