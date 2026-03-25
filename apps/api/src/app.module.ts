@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 
+import { AdminModule } from "./admin/admin.module.js";
 import { AssistantModule } from "./assistant/assistant.module.js";
 import { AuditModule } from "./audit/audit.module.js";
 import { AuthModule } from "./auth/auth.module.js";
@@ -29,7 +30,8 @@ import { UsersModule } from "./users/users.module.js";
     ExamsModule,
     PatientPortalModule,
     AssistantModule,
-    OpsModule
+    OpsModule,
+    AdminModule
   ],
   providers: [
     {

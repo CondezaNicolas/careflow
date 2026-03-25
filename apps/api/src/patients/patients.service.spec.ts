@@ -13,11 +13,11 @@ const TENANT_CLINICIAN = {
 
 function createMockPatientRepository(
   overrides: Partial<{
-    findByIdWithinTenant: (patientId: string, scope: unknown) => unknown;
+    findByIdWithinTenant: (patientId: string, tenantId: string) => Promise<unknown>;
   }> = {}
 ) {
   return {
-    findByIdWithinTenant: overrides.findByIdWithinTenant ?? (() => null)
+    findByIdWithinTenant: overrides.findByIdWithinTenant ?? (async () => null)
   } as unknown as import("./patient.repository.js").PatientRepository;
 }
 
@@ -36,28 +36,33 @@ describe("PatientsService", () => {
         tenantId: TENANT_CLINICIAN.tenantId,
         firstName: "John",
         lastName: "Doe",
-        dateOfBirth: "1990-01-01",
-        medicalRecordNumber: "MRN-001"
+        email: "john@example.com",
+        phone: "555-1234",
+        dateOfBirth: new Date("1990-01-01"),
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const mockRepo = createMockPatientRepository({
-        findByIdWithinTenant: () => fakePatient
+        findByIdWithinTenant: async () => fakePatient
       });
       patientsService = new PatientsService(mockRepo);
 
-      const result = patientsService.getChart(TENANT_CLINICIAN, "pt-1");
+      const result = await patientsService.getChart(TENANT_CLINICIAN, "pt-1");
 
       assert.equal(result.id, "pt-1");
       assert.equal(result.tenantId, TENANT_CLINICIAN.tenantId);
+      assert.equal(result.firstName, "John");
+      assert.equal(result.lastName, "Doe");
     });
 
     it("throws NotFoundException when patient does not exist", async () => {
       const mockRepo = createMockPatientRepository({
-        findByIdWithinTenant: () => null
+        findByIdWithinTenant: async () => null
       });
       patientsService = new PatientsService(mockRepo);
 
-      assert.throws(
+      await assert.rejects(
         () => patientsService.getChart(TENANT_CLINICIAN, "nonexistent"),
         /Patient not found/
       );

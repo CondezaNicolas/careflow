@@ -9,9 +9,9 @@ import { PatientRepository } from "./patient.repository.js";
 export class PatientsService {
   constructor(@Inject(PatientRepository) private readonly patientRepository: PatientRepository) {}
 
-  getChart(principal: AuthPrincipal, patientId: string) {
-    const scope = tenantScopeFromPrincipal(principal);
-    const patient = this.patientRepository.findByIdWithinTenant(patientId, scope);
+  async getChart(principal: AuthPrincipal, patientId: string) {
+    const tenantId = tenantScopeFromPrincipal(principal).tenantId;
+    const patient = await this.patientRepository.findByIdWithinTenant(patientId, tenantId);
     if (!patient) {
       throw new NotFoundException("Patient not found");
     }
