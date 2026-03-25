@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsString, IsOptional, IsIn, MinLength } from "class-validator";
+import { IsString, IsOptional, MinLength } from "class-validator";
 
 import { trimAndLowercase, trimToUndefined } from "../../common/validation/string.transforms.js";
 

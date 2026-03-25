@@ -2,8 +2,6 @@ import { Injectable } from "@nestjs/common";
 
 import type { User } from "../users/entities/user.entity.js";
 import type { UserRole } from "../common/constants/user-role.js";
-import { USER_ROLE } from "../common/constants/user-role.js";
-import type { Tenant } from "./admin.repository.js";
 import { AdminRepository } from "./admin.repository.js";
 import { UsersService } from "../users/users.service.js";
 

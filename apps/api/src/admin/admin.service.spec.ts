@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
 import { USER_ROLE } from "../common/constants/user-role.js";
 import type { User } from "../users/entities/user.entity.js";
@@ -244,7 +244,7 @@ describe("AdminService", () => {
       const mockUsersService = {} as unknown as UsersService;
 
       const service = new AdminService(mockAdminRepository, mockUsersService);
-      const result = await service.search("john", " users , patients ");
+      await service.search("john", " users , patients ");
 
       assert.equal(searchCalls.length, 2);
       assert.equal(searchCalls[0].type, "users");

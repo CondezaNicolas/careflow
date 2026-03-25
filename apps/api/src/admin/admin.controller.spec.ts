@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { USER_ROLE } from "../common/constants/user-role.js";
 import { SearchQueryDto } from "./dtos/search.dto.js";
 import { CreateUserRequestDto } from "./dtos/create-user.dto.js";

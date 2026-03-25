@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
 import type { QueryExecutor } from "../common/db/repository.utils.js";
 import { mapOptionalRow, resolveQueryExecutor } from "../common/db/repository.utils.js";

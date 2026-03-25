@@ -15,7 +15,8 @@ import {
   Workflow
 } from "lucide-react";
 import Link from "next/link";
-import type { MouseEvent } from "react";
+import { usePathname } from "next/navigation";
+import { useMemo } from "react";
 
 interface AdminSidebarItem {
   href?: string;
@@ -35,45 +36,51 @@ interface AdminSidebarProps {
   tenantId: string;
 }
 
-const ADMIN_SIDEBAR_ITEMS: readonly AdminSidebarItem[] = [
+const ADMIN_SIDEBAR_ITEMS: readonly Omit<AdminSidebarItem, "isActive">[] = [
   {
     href: "/admin",
     icon: LayoutDashboard,
     id: "dashboard",
-    isActive: true,
     label: "Dashboard"
   },
   {
+    href: "/admin/operations",
     icon: Activity,
     id: "operations",
     label: "Operaciones"
   },
   {
+    href: "/admin/users",
     icon: UserRoundCog,
     id: "users",
     label: "Usuarios y Roles"
   },
   {
+    href: "/admin/clinic",
     icon: Building2,
     id: "clinic",
     label: "Clinica"
   },
   {
+    href: "/admin/integrations",
     icon: Workflow,
     id: "integrations",
     label: "Integraciones"
   },
   {
+    href: "/admin/audit",
     icon: History,
     id: "audit",
     label: "Auditoria"
   },
   {
+    href: "/admin/settings",
     icon: Settings,
     id: "settings",
     label: "Configuracion"
   },
   {
+    href: "/admin/support",
     icon: HelpCircle,
     id: "support",
     label: "Soporte"
@@ -94,7 +101,7 @@ function buildInitials(displayName: string): string {
   return tokens.map((token) => token[0]?.toUpperCase() ?? "").join("");
 }
 
-function stopSidebarEventPropagation(event: MouseEvent<HTMLElement>) {
+function stopSidebarEventPropagation(event: React.MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }
 
@@ -108,8 +115,16 @@ export function AdminSidebar({
   tenantId
 }: AdminSidebarProps) {
   const initials = buildInitials(displayName);
+  const pathname = usePathname();
 
-  function handleSidebarClick(event: MouseEvent<HTMLElement>) {
+  const sidebarItems = useMemo(() => {
+    return ADMIN_SIDEBAR_ITEMS.map((item) => ({
+      ...item,
+      isActive: item.href === pathname
+    }));
+  }, [pathname]);
+
+  function handleSidebarClick(event: React.MouseEvent<HTMLElement>) {
     const target = event.target;
 
     if (!(target instanceof HTMLElement)) {
@@ -142,7 +157,7 @@ export function AdminSidebar({
       </div>
 
       <nav aria-label="Admin sections" className="admin-sidebar__nav">
-        {ADMIN_SIDEBAR_ITEMS.map((item) => {
+        {sidebarItems.map((item) => {
           const Icon = item.icon;
           const itemClassName = item.isActive
             ? "admin-sidebar__item admin-sidebar__item--active"
